@@ -6,6 +6,7 @@ import { IContactSubmission } from '@/types/contact';
 import { eventService } from '@/services/eventService';
 import { contactService } from '@/services/contactService';
 import EventModal from '@/components/EventModal';
+import LeadershipManagement from '@/components/LeadershipManagement';
 
 export default function AdminDashboard() {
   const [events, setEvents] = useState<IEvent[]>([]);
@@ -20,7 +21,7 @@ export default function AdminDashboard() {
     category: 'technical' as const,
     isUpcoming: true
   });
-  const [activeTab, setActiveTab] = useState<'events' | 'contacts'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'contacts' | 'leadership' | 'media'>('events');
   const [contacts, setContacts] = useState<IContactSubmission[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -109,6 +110,30 @@ export default function AdminDashboard() {
               }`}
             >
               Contact Submissions
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setActiveTab('leadership')}
+              className={`px-6 py-2 rounded-lg transition-all ${
+                activeTab === 'leadership' 
+                  ? 'bg-orange-500 text-white' 
+                  : 'bg-white/10 text-white'
+              }`}
+            >
+              Leadership
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setActiveTab('media')}
+              className={`px-6 py-2 rounded-lg transition-all ${
+                activeTab === 'media' 
+                  ? 'bg-orange-500 text-white' 
+                  : 'bg-white/10 text-white'
+              }`}
+            >
+              Media Library
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -236,7 +261,7 @@ export default function AdminDashboard() {
                 ))}
               </div>
             </motion.div>
-          ) : (
+          ) : activeTab === 'contacts' ? (
             <motion.div
               key="contacts"
               initial={{ opacity: 0, y: 20 }}
@@ -287,6 +312,18 @@ export default function AdminDashboard() {
                   </p>
                 </motion.div>
               ))}
+            </motion.div>
+          ) : activeTab === 'leadership' ? (
+            <LeadershipManagement />
+          ) : (
+            <motion.div
+              key="media"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-4"
+            >
+              {/* Media Management */}
             </motion.div>
           )}
         </AnimatePresence>

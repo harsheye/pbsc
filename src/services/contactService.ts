@@ -1,18 +1,22 @@
 import { IContactSubmission } from '@/types/contact';
+import { initialContacts } from '@/data/store';
 
-let contactSubmissions: IContactSubmission[] = [];
+// Use initial data from store
+let submissions: IContactSubmission[] = [...initialContacts];
 
 export const contactService = {
-  submitContact: (submission: IContactSubmission) => {
-    contactSubmissions = [submission, ...contactSubmissions];
-    return submission;
-  },
+  getAllSubmissions: () => submissions,
 
-  getAllSubmissions: () => {
-    return contactSubmissions;
+  addSubmission: (submission: Omit<IContactSubmission, 'timestamp'>) => {
+    const newSubmission = {
+      ...submission,
+      timestamp: new Date()
+    };
+    submissions = [newSubmission, ...submissions];
+    return newSubmission;
   },
 
   deleteSubmission: (uid: string) => {
-    contactSubmissions = contactSubmissions.filter(sub => sub.uid !== uid);
+    submissions = submissions.filter(sub => sub.uid !== uid);
   }
 }; 

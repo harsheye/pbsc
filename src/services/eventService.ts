@@ -1,32 +1,19 @@
 import { IEvent } from '@/types/event';
+import { initialEvents } from '@/data/store';
 
-// Mock database - in a real app, this would be a database
-let events: IEvent[] = [
-  {
-    id: '1',
-    title: 'Web Development Workshop',
-    description: 'Learn modern web development techniques with React and Next.js',
-    date: '2024-04-15',
-    time: '10:00 AM',
-    venue: 'CU Block-1 Auditorium',
-    category: 'workshop',
-    isUpcoming: true,
-    image: '/events/workshop.jpg',
-    createdAt: new Date('2024-01-15').toISOString()
-  },
-  {
-    id: '2',
-    title: 'AI/ML Seminar',
-    description: 'Exploring the latest trends in Artificial Intelligence',
-    date: '2024-04-20',
-    time: '2:00 PM',
-    venue: 'Virtual Event',
-    category: 'seminar',
-    isUpcoming: true,
-    image: '/events/ai-seminar.jpg',
-    createdAt: new Date('2024-01-10').toISOString()
+// Use initial data from store
+let events: IEvent[] = [...initialEvents];
+
+// Add image validation
+const isValidImageUrl = (url: string) => {
+  if (!url) return true; // Optional image
+  try {
+    new URL(url);
+    return url.match(/\.(jpg|jpeg|png|webp|avif|gif|svg)$/) !== null;
+  } catch {
+    return false;
   }
-];
+};
 
 export const eventService = {
   getAllEvents: () => {
@@ -48,6 +35,10 @@ export const eventService = {
   },
 
   addEvent: (event: Omit<IEvent, 'id' | 'createdAt'>) => {
+    if (event.image && !isValidImageUrl(event.image)) {
+      throw new Error('Invalid image URL');
+    }
+
     const newEvent = {
       ...event,
       id: Date.now().toString(),

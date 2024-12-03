@@ -3,12 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { eventService } from '@/services/eventService';
 import { IEvent } from '@/types/event';
+import ImageUpload from './ImageUpload';
 
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEventCreated: () => void;
 }
+
+type EventCategory = 'technical' | 'workshop' | 'seminar' | 'other';
 
 export default function EventModal({ isOpen, onClose, onEventCreated }: EventModalProps) {
   const [formData, setFormData] = useState({
@@ -17,28 +20,62 @@ export default function EventModal({ isOpen, onClose, onEventCreated }: EventMod
     date: '',
     time: '',
     venue: '',
-    category: 'technical',
+    category: 'technical' as EventCategory,
     isUpcoming: true,
     image: '',
     registrationLink: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    eventService.addEvent(formData);
-    onEventCreated();
-    onClose();
-    setFormData({
-      title: '',
-      description: '',
-      date: '',
-      time: '',
-      venue: '',
-      category: 'technical',
-      isUpcoming: true,
-      image: '',
-      registrationLink: ''
-    });
+    
+    // Don't submit if still uploading
+    if (isUploading) {
+      return;
+    }
+
+    try {
+      await eventService.addEvent(formData);
+      onEventCreated();
+      onClose();
+      setFormData({
+        title: '',
+        description: '',
+        date: '',
+        time: '',
+        venue: '',
+        category: 'technical' as EventCategory,
+        isUpcoming: true,
+        image: '',
+        registrationLink: ''
+      });
+    } catch (error) {
+      console.error('Failed to create event:', error);
+    }
+  };
+
+  const handleImageUploadStart = () => {
+    setIsUploading(true);
+    setUploadError(null);
+  };
+
+  const handleImageUploadSuccess = (url: string) => {
+    setIsUploading(false);
+    setUploadError(null);
+    setFormData(prev => ({ ...prev, image: url }));
+  };
+
+  const handleImageUploadError = (error: any) => {
+    setIsUploading(false);
+    setUploadError(error.message || 'Failed to upload image');
+    console.error('Image upload failed:', error);
+  };
+
+  const handleModalClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
   };
 
   return (
@@ -56,7 +93,7 @@ export default function EventModal({ isOpen, onClose, onEventCreated }: EventMod
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             className="bg-gray-900 p-8 rounded-xl w-full max-w-2xl mx-4"
-            onClick={e => e.stopPropagation()}
+            onClick={handleModalClick}
           >
             <h2 className="text-2xl font-bold mb-6 text-orange-400">Create New Event</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -80,7 +117,10 @@ export default function EventModal({ isOpen, onClose, onEventCreated }: EventMod
                   </label>
                   <select
                     value={formData.category}
-                    onChange={e => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
+                    onChange={e => setFormData(prev => ({ 
+                      ...prev, 
+                      category: e.target.value as EventCategory 
+                    }))}
                     className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
                   >
                     <option value="technical">Technical</option>
@@ -146,14 +186,36 @@ export default function EventModal({ isOpen, onClose, onEventCreated }: EventMod
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Image URL
+                  Event Image
                 </label>
-                <input
-                  type="url"
-                  value={formData.image}
-                  onChange={e => setFormData(prev => ({ ...prev, image: e.target.value }))}
-                  className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
-                />
+                <div className="space-y-2">
+                  <ImageUpload
+                    category="event"
+                    onSuccess={handleImageUploadSuccess}
+                    onError={handleImageUploadError}
+                    onUploadStart={handleImageUploadStart}
+                  />
+                  {uploadError && (
+                    <p className="text-red-500 text-sm">{uploadError}</p>
+                  )}
+                  {formData.image && (
+                    <div className="relative h-40 rounded-lg overflow-hidden">
+                      <img
+                        src={formData.image}
+                        alt="Event preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, image: '' }))}
+                        className="absolute top-2 right-2 bg-red-500/80 text-white p-2 rounded-full
+                          hover:bg-red-600 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -179,10 +241,11 @@ export default function EventModal({ isOpen, onClose, onEventCreated }: EventMod
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 
-                    transition-colors"
+                  disabled={isUploading}
+                  className={`px-6 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 
+                    transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  Create Event
+                  {isUploading ? 'Uploading...' : 'Create Event'}
                 </button>
               </div>
             </form>
