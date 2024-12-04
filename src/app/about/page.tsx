@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import Footer from '@/components/Footer';
@@ -20,15 +20,20 @@ const retroGridStyle = {
   maskImage: 'linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)',
 };
 
-// Add scroll animation variants
+// Update the scroll animations
 const scrollVariants = {
-  hidden: { opacity: 0, y: 50 },
-  visible: { 
-    opacity: 1, 
+  hidden: { 
+    opacity: 0,
+    y: 50,
+    scale: 0.95
+  },
+  visible: {
+    opacity: 1,
     y: 0,
+    scale: 1,
     transition: {
-      duration: 0.6,
-      ease: "easeOut"
+      duration: 0.8,
+      ease: [0.43, 0.13, 0.23, 0.96]
     }
   }
 };
@@ -103,54 +108,85 @@ const levelVariants = {
   }
 };
 
+// Update the scroll animations with more dynamic effects
 const memberVariants = {
   0: { // Chairperson
-    hidden: { opacity: 0, y: -100 },
+    hidden: { 
+      opacity: 0, 
+      y: -100,
+      scale: 0.8,
+      filter: 'blur(10px)'
+    },
     visible: { 
       opacity: 1, 
       y: 0,
+      scale: 1,
+      filter: 'blur(0px)',
       transition: {
         type: "spring",
         bounce: 0.4,
-        duration: 1
+        duration: 1.2
       }
     }
   },
   1: { // Vice Chairperson
-    hidden: { opacity: 0, y: 100 },
+    hidden: { 
+      opacity: 0, 
+      y: -80, 
+      x: 100,
+      rotateY: 90
+    },
     visible: { 
       opacity: 1, 
       y: 0,
+      x: 0,
+      rotateY: 0,
       transition: {
         type: "spring",
-        bounce: 0.4,
-        duration: 1
+        bounce: 0.3,
+        duration: 1.2
       }
     }
   },
   2: { // Secretary and Joint Secretary
-    hidden: { opacity: 0, x: -100 },
-    visible: { 
-      opacity: 1, 
-      x: 0,
-      transition: {
-        type: "spring",
-        bounce: 0.4,
-        duration: 1
-      }
-    }
-  },
-  3: { // Bottom level members
-    hidden: { opacity: 0, y: 100 },
-    visible: { 
+    hidden: (i: number) => ({ 
+      opacity: 0, 
+      y: -60, 
+      x: i === 0 ? -200 : 200,
+      scale: 0.8
+    }),
+    visible: (i: number) => ({ 
       opacity: 1, 
       y: 0,
+      x: 0,
+      scale: 1,
       transition: {
         type: "spring",
-        bounce: 0.4,
-        duration: 1
+        bounce: 0.3,
+        duration: 1.2,
+        delay: i * 0.2
       }
-    }
+    })
+  },
+  3: { // Bottom level members
+    hidden: (i: number) => ({ 
+      opacity: 0, 
+      y: 100, 
+      x: i % 2 === 0 ? -100 : 100,
+      scale: 0.5
+    }),
+    visible: (i: number) => ({ 
+      opacity: 1, 
+      y: 0,
+      x: 0,
+      scale: 1,
+      transition: {
+        type: "spring",
+        bounce: 0.2,
+        duration: 1,
+        delay: i * 0.1
+      }
+    })
   }
 };
 
@@ -358,11 +394,116 @@ const gridVariants = {
   }
 };
 
+// Add glow animation for cards
+const glowAnimation = {
+  initial: { boxShadow: '0 0 0 rgba(249, 115, 22, 0)' },
+  glow: { 
+    boxShadow: [
+      '0 0 0 rgba(249, 115, 22, 0)',
+      '0 0 20px rgba(249, 115, 22, 0.5)',
+      '0 0 0 rgba(249, 115, 22, 0)'
+    ],
+    transition: {
+      duration: 2,
+      repeat: 1,
+      ease: "easeInOut"
+    }
+  }
+};
+
+// Update the FlowingParticle component with more dynamic movement
+const FlowingParticle = ({ onLevelChange }: { onLevelChange: (level: number) => void }) => {
+  const [currentLevel, setCurrentLevel] = useState(0);
+  
+  const positions = [
+    { y: '15%', scale: 1.2 },    // Chairperson
+    { y: '40%', scale: 1 },    // Vice Chairperson
+    { y: '65%', scale: 1.1 },    // Secretary Level
+    { y: '90%', scale: 0.9 }     // Other positions
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const nextLevel = (currentLevel + 1) % positions.length;
+      setCurrentLevel(nextLevel);
+      onLevelChange(nextLevel);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [currentLevel, onLevelChange]);
+
+  return (
+    <motion.div
+      className="absolute left-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
+      animate={{
+        y: positions[currentLevel].y,
+        scale: positions[currentLevel].scale
+      }}
+      transition={{
+        duration: 2,
+        ease: [0.43, 0.13, 0.23, 0.96]
+      }}
+    >
+      {/* Enhanced Glowing Particle */}
+      <div className="relative">
+        <div className="absolute inset-0 rounded-full bg-orange-500 blur-xl animate-pulse" />
+        <div className="absolute inset-0 rounded-full bg-orange-400 blur-md" />
+        <div className="relative w-full h-full rounded-full bg-orange-300" />
+        
+        {/* Additional glow effects */}
+        <div className="absolute inset-0 rounded-full animate-ping">
+          <div className="absolute inset-0 rounded-full bg-orange-500 opacity-30" />
+        </div>
+      </div>
+      
+      {/* Enhanced Trailing effect */}
+      <motion.div
+        className="absolute inset-0 rounded-full bg-orange-500"
+        initial={{ scale: 1, opacity: 0.5 }}
+        animate={{ 
+          scale: [1, 2.5, 1],
+          opacity: [0.5, 0, 0.5]
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          ease: "linear"
+        }}
+      />
+    </motion.div>
+  );
+};
+
+// Update the faculty section animations
+const facultyCardVariants = {
+  hidden: (i: number) => ({
+    opacity: 0,
+    y: 50,
+    x: i % 3 === 0 ? -50 : i % 3 === 2 ? 50 : 0,
+    scale: 0.8,
+    rotateY: i % 2 === 0 ? -30 : 30
+  }),
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    x: 0,
+    scale: 1,
+    rotateY: 0,
+    transition: {
+      type: "spring",
+      bounce: 0.4,
+      duration: 1.2,
+      delay: i * 0.2
+    }
+  })
+};
+
 export default function AboutPage() {
   const [teamMembers, setTeamMembers] = useState<Member[]>([]);
   const [facultyMembers, setFacultyMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentGlowLevel, setCurrentGlowLevel] = useState(-1);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -471,6 +612,20 @@ export default function AboutPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white pt-24 relative">
+      {/* Retro Grid Background */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(249, 115, 22, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(249, 115, 22, 0.05) 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px',
+          backgroundPosition: '-1px -1px',
+          maskImage: 'linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)'
+        }}
+      />
+
       {/* Particles Background */}
       <Particles
         id="tsparticles"
@@ -489,44 +644,67 @@ export default function AboutPage() {
           whileInView="visible"
           viewport={{ once: true }}
         >
-          <h2 className="text-3xl font-bold mb-16 bg-gradient-to-r from-orange-500 to-secondary text-transparent bg-clip-text">
+          <h2 className="text-3xl font-bold mb-16 bg-gradient-to-r from-orange-500 to-secondary text-transparent bg-clip-text text-center">
             Faculty Members
           </h2>
-          <motion.div 
-            className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8"
-            variants={gridVariants}
-          >
-            {facultyMembers.map((member) => (
-              <MemberCard key={member._id} member={member} />
-            ))}
-          </motion.div>
+          <div className="flex justify-center px-4">
+            <motion.div 
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-16 gap-y-12 w-full"
+              variants={gridVariants}
+              style={{ justifyItems: 'center' }}
+            >
+              {facultyMembers.map((member, index) => (
+                <motion.div
+                  key={member._id}
+                  custom={index}
+                  variants={facultyCardVariants}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true, margin: "-100px" }}
+                  className="w-72"
+                >
+                  <MemberCard member={member} />
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
         </motion.section>
 
         {/* Team Section with Hierarchy */}
-        <motion.section
-          className="mb-32"
-          variants={sectionVariants}
+        <motion.section 
+          className="mb-32 relative"
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true }}
+          viewport={{ once: true, margin: "-100px" }}
+          variants={containerVariants}
         >
-          <h2 className="text-3xl font-bold mb-16 bg-gradient-to-r from-orange-500 to-secondary text-transparent bg-clip-text">
+          <h2 className="text-3xl font-bold mb-16 bg-gradient-to-r from-orange-500 to-secondary text-transparent bg-clip-text text-center">
             Team Members
           </h2>
+
+          {/* Vertical line for particle to follow */}
+          <div className="absolute left-1/2 top-32 bottom-0 w-px bg-gradient-to-b from-transparent via-orange-500/30 to-transparent transform -translate-x-1/2" />
           
-          {/* Hierarchical Layout */}
-          <div className="relative space-y-32">
+          {/* Flowing Particle */}
+          <FlowingParticle onLevelChange={setCurrentGlowLevel} />
+
+          {/* Hierarchical Layout with increased spacing */}
+          <div className="space-y-48 relative z-0">
             {/* Level 1 - Chairperson */}
             <div className="flex justify-center">
               {teamMembers
                 .filter(m => m.position === 'Chairperson')
-                .map(member => (
+                .map((member, index) => (
                   <motion.div
                     key={member._id}
                     className="w-72"
+                    custom={index}
                     variants={memberVariants[0]}
                   >
-                    <MemberCard member={member} />
+                    <MemberCard 
+                      member={member} 
+                      shouldGlow={currentGlowLevel === 0}
+                    />
                   </motion.div>
                 ))}
             </div>
@@ -535,28 +713,36 @@ export default function AboutPage() {
             <div className="flex justify-center">
               {teamMembers
                 .filter(m => m.position === 'Vice Chairperson')
-                .map(member => (
+                .map((member, index) => (
                   <motion.div
                     key={member._id}
                     className="w-72"
+                    custom={index}
                     variants={memberVariants[1]}
                   >
-                    <MemberCard member={member} />
+                    <MemberCard 
+                      member={member} 
+                      shouldGlow={currentGlowLevel === 1}
+                    />
                   </motion.div>
                 ))}
             </div>
 
             {/* Level 3 - Secretary and Joint Secretary */}
-            <div className="flex justify-center gap-8">
+            <div className="flex justify-center gap-16">
               {teamMembers
                 .filter(m => ['Secretary', 'Joint Secretary'].includes(m.position))
-                .map(member => (
+                .map((member, index) => (
                   <motion.div
                     key={member._id}
                     className="w-72"
+                    custom={index}
                     variants={memberVariants[2]}
                   >
-                    <MemberCard member={member} />
+                    <MemberCard 
+                      member={member} 
+                      shouldGlow={currentGlowLevel === 2}
+                    />
                   </motion.div>
                 ))}
             </div>
@@ -565,36 +751,64 @@ export default function AboutPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 justify-items-center">
               {teamMembers
                 .filter(m => !['Chairperson', 'Vice Chairperson', 'Secretary', 'Joint Secretary'].includes(m.position))
-                .map(member => (
+                .map((member, index) => (
                   <motion.div
                     key={member._id}
                     className="w-72"
+                    custom={index}
                     variants={memberVariants[3]}
                   >
-                    <MemberCard member={member} />
+                    <MemberCard 
+                      member={member} 
+                      shouldGlow={currentGlowLevel === 3}
+                    />
                   </motion.div>
                 ))}
             </div>
           </div>
-
-          {/* Optional: Add a visual indicator of hierarchy */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="h-full w-px bg-gradient-to-b from-transparent via-orange-500/20 to-transparent mx-auto" />
-          </div>
         </motion.section>
       </div>
 
-      <Footer />
+      <footer className="relative py-8 mt-32 border-t border-orange-500/20">
+        <div className="max-w-7xl mx-auto px-4">
+          <Footer />
+          <div className="absolute bottom-4 right-4 text-sm text-gray-500 opacity-70">
+            Made with ❤️ by Harsh
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
 
-function MemberCard({ member }: { member: Member }) {
+function MemberCard({ member, shouldGlow = false }: { member: Member; shouldGlow?: boolean }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (shouldGlow && cardRef.current) {
+      const animation = cardRef.current.animate([
+        { boxShadow: '0 0 0 rgba(249, 115, 22, 0)', transform: 'scale(1)' },
+        { boxShadow: '0 0 30px rgba(249, 115, 22, 0.6)', transform: 'scale(1.02)' },
+        { boxShadow: '0 0 0 rgba(249, 115, 22, 0)', transform: 'scale(1)' }
+      ], {
+        duration: 2000,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
+      });
+
+      return () => animation.cancel();
+    }
+  }, [shouldGlow]);
+
   return (
     <motion.div 
-      variants={cardVariants}
-      whileHover={{ y: -10 }}
-      className="relative h-72 w-72 rounded-lg overflow-hidden group"
+      ref={cardRef}
+      variants={scrollVariants}
+      whileHover={{ 
+        y: -10,
+        transition: { duration: 0.3 }
+      }}
+      className={`relative h-72 w-72 rounded-lg overflow-hidden group transform transition-all duration-300
+        ${shouldGlow ? 'z-10' : 'z-0'}`}
     >
       {/* Shimmer Border */}
       <div className="absolute inset-0 rounded-lg p-[2px] z-0">
