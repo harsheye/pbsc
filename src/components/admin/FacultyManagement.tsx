@@ -202,6 +202,7 @@ function FacultyModal({ member, onClose, onSubmit }: {
           <div>
             <label className="block text-sm mb-1">Profile Image</label>
             <ImageUpload
+              category="faculty"
               currentImage={member?.image}
               onSuccess={(url) => {
                 const input = document.createElement('input');
@@ -209,6 +210,10 @@ function FacultyModal({ member, onClose, onSubmit }: {
                 input.name = 'image';
                 input.value = url;
                 formRef.current?.appendChild(input);
+              }}
+              onError={(error) => {
+                console.error('Image upload failed:', error);
+                // Add error handling UI if needed
               }}
             />
           </div>

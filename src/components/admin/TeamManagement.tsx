@@ -219,6 +219,7 @@ function MemberModal({ member, onClose, onSubmit }: {
           <div>
             <label className="block text-sm mb-1">Profile Image</label>
             <ImageUpload
+              category="team"
               currentImage={member?.image}
               onSuccess={(url) => {
                 const input = document.createElement('input');
@@ -226,6 +227,9 @@ function MemberModal({ member, onClose, onSubmit }: {
                 input.name = 'image';
                 input.value = url;
                 formRef.current?.appendChild(input);
+              }}
+              onError={(error) => {
+                console.error('Image upload failed:', error);
               }}
             />
           </div>

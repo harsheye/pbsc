@@ -128,8 +128,12 @@ export default function MediaGallery() {
             >
               <h3 className="text-xl font-semibold mb-4">Upload Image</h3>
               <ImageUpload
+                category="media"
                 onSuccess={handleImageUpload}
-                className="mb-4"
+                onError={(error) => {
+                  console.error('Upload failed:', error);
+                  // Add error handling UI if needed
+                }}
               />
               <div className="flex justify-end">
                 <button

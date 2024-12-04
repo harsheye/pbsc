@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IEvent } from '@/types/event';
 import { eventService } from '@/services/eventService';
+import ImageUpload from '@/components/ImageUpload';
 
 interface EventModalProps {
   isOpen: boolean;
@@ -131,6 +132,23 @@ export default function EventModal({
                 className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2 h-32"
                 required
               />
+              <div>
+                <label className="block text-sm mb-1">Event Image</label>
+                <ImageUpload
+                  category="event"
+                  currentImage={event?.image}
+                  onSuccess={(url) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      image: url
+                    }));
+                  }}
+                  onError={(error) => {
+                    console.error('Image upload failed:', error);
+                    // Add error handling UI if needed
+                  }}
+                />
+              </div>
               <div className="flex justify-end gap-4">
                 <button
                   type="button"

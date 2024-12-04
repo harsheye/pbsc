@@ -230,6 +230,7 @@ function EventModal({
           <div>
             <label className="block text-sm mb-1">Main Image</label>
             <ImageUpload
+              category="event"
               currentImage={event?.mainImage}
               onSuccess={(url) => {
                 const input = document.createElement('input');
@@ -237,6 +238,10 @@ function EventModal({
                 input.name = 'mainImage';
                 input.value = url;
                 formRef.current?.appendChild(input);
+              }}
+              onError={(error) => {
+                console.error('Image upload failed:', error);
+                // Add error handling UI if needed
               }}
             />
           </div>
