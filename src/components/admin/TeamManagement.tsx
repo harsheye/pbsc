@@ -220,6 +220,7 @@ function MemberModal({ member, onClose, onSubmit }: {
             <label className="block text-sm mb-1">Profile Image</label>
             <ImageUpload
               category="team"
+              aspectRatio={1}
               currentImage={member?.image}
               onSuccess={(url) => {
                 const input = document.createElement('input');

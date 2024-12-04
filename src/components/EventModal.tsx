@@ -136,6 +136,7 @@ export default function EventModal({
                 <label className="block text-sm mb-1">Event Image</label>
                 <ImageUpload
                   category="event"
+                  aspectRatio={16/9}
                   currentImage={event?.image}
                   onSuccess={(url) => {
                     setFormData(prev => ({
