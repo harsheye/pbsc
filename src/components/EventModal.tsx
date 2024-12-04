@@ -1,8 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
 import { IEvent } from '@/types/event';
-import { eventService } from '@/services/eventService';
 import ImageUpload from '@/components/ImageUpload';
 
 interface EventModalProps {
@@ -29,7 +29,7 @@ export default function EventModal({
       venue: '',
       category: 'technical',
       isUpcoming: true,
-      images: []
+      image: ''
     }
   );
 
@@ -40,17 +40,20 @@ export default function EventModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     try {
-      if (event) {
-        await eventService.updateEvent(event._id.toString(), formData);
+      if (event?._id) {
+        // Update existing event
+        await axios.put(`/api/events/${event._id}`, formData);
         onEventUpdated?.();
       } else {
-        await eventService.addEvent(formData as Omit<IEvent, '_id' | 'createdAt'>);
+        // Create new event
+        await axios.post('/api/events', formData);
         onEventCreated?.();
       }
       onClose();
     } catch (error) {
-      console.error('Failed to save event:', error);
+      console.error('Error saving event:', error);
     }
   };
 
@@ -61,83 +64,116 @@ export default function EventModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
         >
           <motion.div
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0.95 }}
-            className="bg-gray-900 rounded-xl p-6 max-w-2xl w-full"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="bg-gray-900 rounded-lg p-6 w-full max-w-2xl mx-4"
           >
-            <h2 className="text-2xl font-bold text-orange-400 mb-4">
-              {event ? 'Edit Event' : 'Create New Event'}
-            </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <h2 className="text-2xl font-bold mb-6">
+                {event ? 'Edit Event' : 'Create Event'}
+              </h2>
+
+              {/* Title */}
+              <div>
+                <label className="block text-sm mb-1">Title</label>
                 <input
                   type="text"
-                  placeholder="Event Title"
                   value={formData.title}
                   onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
                   required
                 />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm mb-1">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2 h-32"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Date */}
+                <div>
+                  <label className="block text-sm mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    min={minDate}
+                    onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                    required
+                  />
+                </div>
+
+                {/* Time */}
+                <div>
+                  <label className="block text-sm mb-1">Time</label>
+                  <input
+                    type="time"
+                    value={formData.time}
+                    onChange={e => setFormData(prev => ({ ...prev, time: e.target.value }))}
+                    className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Venue */}
+              <div>
+                <label className="block text-sm mb-1">Venue</label>
+                <input
+                  type="text"
+                  value={formData.venue}
+                  onChange={e => setFormData(prev => ({ ...prev, venue: e.target.value }))}
+                  className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  required
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm mb-1">Category</label>
                 <select
                   value={formData.category}
                   onChange={e => setFormData(prev => ({ ...prev, category: e.target.value as IEvent['category'] }))}
-                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
                   required
                 >
-                  {['technical', 'workshop', 'seminar', 'other'].map(cat => (
-                    <option key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </option>
-                  ))}
+                  <option value="technical">Technical</option>
+                  <option value="workshop">Workshop</option>
+                  <option value="seminar">Seminar</option>
+                  <option value="other">Other</option>
                 </select>
-                <input
-                  type="date"
-                  value={formData.date}
-                  min={minDate}
-                  onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
-                  required
-                />
-                <input
-                  type="time"
-                  value={formData.time}
-                  onChange={e => setFormData(prev => ({ ...prev, time: e.target.value }))}
-                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="Venue"
-                  value={formData.venue}
-                  onChange={e => setFormData(prev => ({ ...prev, venue: e.target.value }))}
-                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
-                  required
-                />
+              </div>
+
+              {/* Registration Link */}
+              <div>
+                <label className="block text-sm mb-1">Registration Link</label>
                 <input
                   type="url"
-                  placeholder="Registration Link (optional)"
                   value={formData.registrationLink}
                   onChange={e => setFormData(prev => ({ ...prev, registrationLink: e.target.value }))}
-                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  placeholder="Optional"
                 />
               </div>
-              <textarea
-                placeholder="Event Description"
-                value={formData.description}
-                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2 h-32"
-                required
-              />
+
+              {/* Image Upload */}
               <div>
                 <label className="block text-sm mb-1">Event Image</label>
                 <ImageUpload
                   category="event"
                   aspectRatio={16/9}
-                  currentImage={event?.image}
+                  currentImage={formData.image}
                   onSuccess={(url) => {
                     setFormData(prev => ({
                       ...prev,
@@ -146,21 +182,22 @@ export default function EventModal({
                   }}
                   onError={(error) => {
                     console.error('Image upload failed:', error);
-                    // Add error handling UI if needed
                   }}
                 />
               </div>
-              <div className="flex justify-end gap-4">
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-4 mt-6">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700"
+                  className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600"
+                  className="px-4 py-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
                 >
                   {event ? 'Update' : 'Create'}
                 </button>
