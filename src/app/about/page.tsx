@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import Footer from '@/components/Footer';
@@ -233,179 +233,15 @@ const Arrow = ({ start, end, color = "rgba(249,115,22,0.3)" }: {
   );
 };
 
-// Update HierarchyVisualization component for hub-and-spoke design
-const HierarchyVisualization = ({ members }: { members: Member[] }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const nodeRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const [arrows, setArrows] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } }[]>([]);
-
-  // Group members by level
-  const membersByLevel = members.reduce((acc, member) => {
-    const level = HIERARCHY_LEVELS[member.position as keyof typeof HIERARCHY_LEVELS]?.level || 0;
-    if (!acc[level]) acc[level] = [];
-    acc[level].push(member);
-    return acc;
-  }, {} as { [key: number]: Member[] });
-
-  useEffect(() => {
-    const calculateArrows = () => {
-      const newArrows: typeof arrows = [];
-      const containerRect = containerRef.current?.getBoundingClientRect();
-      if (!containerRect) return;
-
-      // Get all nodes positions
-      const positions = new Map<string, { x: number; y: number }>();
-      Object.values(nodeRefs.current).forEach(node => {
-        if (!node) return;
-        const rect = node.getBoundingClientRect();
-        const id = node.getAttribute('data-id');
-        if (!id) return;
-        positions.set(id, {
-          x: rect.left - containerRect.left + rect.width / 2,
-          y: rect.top - containerRect.top + rect.height / 2
-        });
-      });
-
-      // Connect each level to the next
-      Object.entries(membersByLevel).forEach(([level, levelMembers], index) => {
-        const nextLevel = membersByLevel[Number(level) + 1];
-        if (!nextLevel) return;
-
-        levelMembers.forEach(member => {
-          const startPos = positions.get(member._id);
-          if (!startPos) return;
-
-          // Connect to all members in next level
-          nextLevel.forEach(nextMember => {
-            const endPos = positions.get(nextMember._id);
-            if (!endPos) return;
-
-            newArrows.push({
-              start: startPos,
-              end: endPos
-            });
-          });
-        });
-      });
-
-      setArrows(newArrows);
-    };
-
-    calculateArrows();
-    window.addEventListener('resize', calculateArrows);
-    return () => window.removeEventListener('resize', calculateArrows);
-  }, [members, membersByLevel]);
-
-  return (
-    <div ref={containerRef} className="relative w-full min-h-[800px]">
-      {/* Connecting Lines */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none">
-        {arrows.map((arrow, i) => (
-          <g key={i}>
-            <line
-              x1={arrow.start.x}
-              y1={arrow.start.y}
-              x2={arrow.end.x}
-              y2={arrow.end.y}
-              stroke="rgba(249,115,22,0.3)"
-              strokeWidth="2"
-            />
-            {/* Add dots at connection points */}
-            <circle
-              cx={arrow.start.x}
-              cy={arrow.start.y}
-              r="3"
-              fill="rgba(249,115,22,0.5)"
-            />
-            <circle
-              cx={arrow.end.x}
-              cy={arrow.end.y}
-              r="3"
-              fill="rgba(249,115,22,0.5)"
-            />
-          </g>
-        ))}
-      </svg>
-
-      {/* Nodes Layout */}
-      <div className="relative flex flex-col items-center gap-32">
-        {/* Center Node (Chairperson) */}
-        <div className="relative">
-          {members.filter(m => m.position === 'Chairperson').map(member => (
-            <div
-              key={member._id}
-              ref={el => nodeRefs.current[member._id] = el}
-              data-id={member._id}
-              className="relative"
-            >
-              <MemberNode member={member} />
-            </div>
-          ))}
-        </div>
-
-        {/* Vice Chairperson */}
-        <div className="relative">
-          {members.filter(m => m.position === 'Vice Chairperson').map(member => (
-            <div
-              key={member._id}
-              ref={el => nodeRefs.current[member._id] = el}
-              data-id={member._id}
-              className="relative"
-            >
-              <MemberNode member={member} />
-            </div>
-          ))}
-        </div>
-
-        {/* Secretary and Joint Secretary */}
-        <div className="flex justify-center gap-64">
-          {members
-            .filter(m => HIERARCHY_LEVELS[m.position as keyof typeof HIERARCHY_LEVELS]?.level === 2)
-            .map(member => (
-              <div
-                key={member._id}
-                ref={el => nodeRefs.current[member._id] = el}
-                data-id={member._id}
-                className="relative"
-              >
-                <MemberNode member={member} />
-              </div>
-            ))}
-        </div>
-
-        {/* Other Members */}
-        <div className="grid grid-cols-4 gap-16">
-          {members
-            .filter(m => HIERARCHY_LEVELS[m.position as keyof typeof HIERARCHY_LEVELS]?.level === 3)
-            .map(member => (
-              <div
-                key={member._id}
-                ref={el => nodeRefs.current[member._id] = el}
-                data-id={member._id}
-                className="relative"
-              >
-                <MemberNode member={member} />
-              </div>
-            ))}
-        </div>
-      </div>
-    </div>
-  );
+// Add hierarchy-specific styles
+const hierarchyStyles = {
+  line: "stroke-orange-500/30 stroke-[2px]",
+  node: "w-40 h-40 rounded-full bg-white/5 backdrop-blur-sm border border-orange-500/30",
+  nodeHover: "hover:border-orange-500 hover:bg-white/10 transition-all duration-300",
+  text: "text-center",
+  title: "font-bold text-orange-500",
+  name: "text-sm text-gray-300 mt-2"
 };
-
-// Add a MemberNode component for consistent styling
-const MemberNode = ({ member }: { member: Member }) => (
-  <motion.div
-    whileHover={{ scale: 1.05 }}
-    className="w-40 h-40 rounded-full bg-white/5 backdrop-blur-sm border border-orange-500/30
-      flex items-center justify-center text-center p-4 cursor-pointer"
-  >
-    <div>
-      <div className="font-bold text-orange-500">{member.position}</div>
-      <div className="text-sm text-gray-300 mt-2">{member.name}</div>
-    </div>
-  </motion.div>
-);
 
 // Particles configuration
 const particlesConfig = {
@@ -442,13 +278,13 @@ const particlesConfig = {
     }
   },
   interactivity: {
-    detect_on: "canvas",
+    detectsOn: "canvas",
     events: {
-      onhover: {
+      onHover: {
         enable: true,
         mode: "grab"
       },
-      onclick: {
+      onClick: {
         enable: true,
         mode: "push"
       },
@@ -457,7 +293,7 @@ const particlesConfig = {
     modes: {
       grab: {
         distance: 140,
-        line_linked: { opacity: 0.5 }
+        links: { opacity: 0.5 }
       },
       push: { particles_nb: 4 }
     }
@@ -489,6 +325,35 @@ const cardVariants = {
     scale: 0.9,
     transition: {
       duration: 0.3
+    }
+  }
+};
+
+// Add section animation variants
+const sectionVariants = {
+  hidden: { 
+    opacity: 0,
+    y: 20
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.6,
+      ease: "easeOut",
+      staggerChildren: 0.2
+    }
+  }
+};
+
+// Add grid animation variants
+const gridVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
     }
   }
 };
@@ -615,13 +480,6 @@ export default function AboutPage() {
         className="absolute inset-0"
       />
 
-      {/* Retro Grid Background */}
-      <div 
-        className="absolute inset-0 pointer-events-none"
-        style={retroGridStyle}
-      />
-
-      {/* Content with increased z-index */}
       <div className="max-w-7xl mx-auto px-4 relative z-10">
         {/* Faculty Section */}
         <motion.section 
@@ -629,41 +487,103 @@ export default function AboutPage() {
           variants={sectionVariants}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: true }}
         >
           <h2 className="text-3xl font-bold mb-16 bg-gradient-to-r from-orange-500 to-secondary text-transparent bg-clip-text">
             Faculty Members
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8"
+            variants={gridVariants}
+          >
             {facultyMembers.map((member) => (
               <MemberCard key={member._id} member={member} />
             ))}
-          </div>
+          </motion.div>
         </motion.section>
 
-        {/* Team Section */}
+        {/* Team Section with Hierarchy */}
         <motion.section
           className="mb-32"
           variants={sectionVariants}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: true }}
         >
           <h2 className="text-3xl font-bold mb-16 bg-gradient-to-r from-orange-500 to-secondary text-transparent bg-clip-text">
             Team Members
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
-            {teamMembers.map((member) => (
-              <MemberCard key={member._id} member={member} />
-            ))}
+          
+          {/* Hierarchical Layout */}
+          <div className="relative space-y-32">
+            {/* Level 1 - Chairperson */}
+            <div className="flex justify-center">
+              {teamMembers
+                .filter(m => m.position === 'Chairperson')
+                .map(member => (
+                  <motion.div
+                    key={member._id}
+                    className="w-72"
+                    variants={memberVariants[0]}
+                  >
+                    <MemberCard member={member} />
+                  </motion.div>
+                ))}
+            </div>
+
+            {/* Level 2 - Vice Chairperson */}
+            <div className="flex justify-center">
+              {teamMembers
+                .filter(m => m.position === 'Vice Chairperson')
+                .map(member => (
+                  <motion.div
+                    key={member._id}
+                    className="w-72"
+                    variants={memberVariants[1]}
+                  >
+                    <MemberCard member={member} />
+                  </motion.div>
+                ))}
+            </div>
+
+            {/* Level 3 - Secretary and Joint Secretary */}
+            <div className="flex justify-center gap-8">
+              {teamMembers
+                .filter(m => ['Secretary', 'Joint Secretary'].includes(m.position))
+                .map(member => (
+                  <motion.div
+                    key={member._id}
+                    className="w-72"
+                    variants={memberVariants[2]}
+                  >
+                    <MemberCard member={member} />
+                  </motion.div>
+                ))}
+            </div>
+
+            {/* Level 4 - Other Positions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 justify-items-center">
+              {teamMembers
+                .filter(m => !['Chairperson', 'Vice Chairperson', 'Secretary', 'Joint Secretary'].includes(m.position))
+                .map(member => (
+                  <motion.div
+                    key={member._id}
+                    className="w-72"
+                    variants={memberVariants[3]}
+                  >
+                    <MemberCard member={member} />
+                  </motion.div>
+                ))}
+            </div>
+          </div>
+
+          {/* Optional: Add a visual indicator of hierarchy */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="h-full w-px bg-gradient-to-b from-transparent via-orange-500/20 to-transparent mx-auto" />
           </div>
         </motion.section>
       </div>
 
-      {/* Add a subtle gradient overlay */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/50 via-transparent to-black/50" />
-
-      {/* Footer */}
       <Footer />
     </main>
   );
@@ -673,9 +593,6 @@ function MemberCard({ member }: { member: Member }) {
   return (
     <motion.div 
       variants={cardVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
       whileHover={{ y: -10 }}
       className="relative h-72 w-72 rounded-lg overflow-hidden group"
     >
