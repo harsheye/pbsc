@@ -47,3 +47,18 @@ public/uploads/*
 !public/uploads/*/
 public/uploads/*/*
 !public/uploads/*/.gitkeep
+
+# Ignore uploaded images but keep structure
+public/images/*
+!public/images/placeholders/
+!public/images/leaders/
+public/images/placeholders/*
+public/images/leaders/*
+!public/images/placeholders/.gitkeep
+!public/images/leaders/.gitkeep
+!public/images/placeholders/profile.jpg
+
+# Server
+dist/
+.env
+uploads/

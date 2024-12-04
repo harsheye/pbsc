@@ -1,63 +1,112 @@
 'use client';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 
-const Header = () => {
+export default function Header() {
+  const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const navLinks = [
+    { href: '/', label: 'Home' },
+    { href: '/about', label: 'About' },
+    { href: '/events', label: 'Events' },
+    { href: '/contact', label: 'Contact' }
+  ];
+
   return (
-    <motion.header 
+    <motion.header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? 'bg-black/80 backdrop-blur-lg border-b border-orange-500/10' : 'bg-transparent'
+      }`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      className="fixed w-full bg-black/90 backdrop-blur-sm z-50 top-0 left-0"
+      transition={{ duration: 0.5 }}
     >
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-20">
-          <Link href="/">
+          {/* Logo and Name */}
+          <Link href="/" className="flex items-center space-x-3 group">
             <motion.div 
+              className="relative w-10 h-10"
               whileHover={{ scale: 1.05 }}
-              className="flex items-center space-x-2"
+              whileTap={{ scale: 0.95 }}
             >
-              <Image 
-                src="/ieee-logo.png" 
-                alt="IEEE Logo" 
-                width={40} 
-                height={40}
-                className="invert"
+              <Image
+                src="/images/logo.png"
+                alt="PBSC Logo"
+                fill
+                className="object-contain"
               />
-              <span className="text-white font-bold text-xl tracking-tight">
-                IEEE PBSC
-              </span>
             </motion.div>
+            <motion.span 
+              className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 text-transparent bg-clip-text"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              PBSC
+            </motion.span>
           </Link>
-          
-          <div className="hidden md:flex items-center space-x-8">
-            {[
-              { name: 'Home', path: '/' },
-              { name: 'About', path: '/about' },
-              { name: 'Events', path: '/events' },
-              { name: 'Contact', path: '/contact' }
-            ].map((item) => (
-              <motion.div
-                key={item.name}
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.95 }}
+
+          {/* Navigation */}
+          <nav className="hidden md:flex items-center space-x-8">
+            {navLinks.map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`relative py-2 transition-colors ${
+                  pathname === href
+                    ? 'text-orange-500 font-medium'
+                    : 'text-gray-400 hover:text-orange-400'
+                }`}
               >
-                <Link
-                  href={item.path}
-                  className="text-gray-300 hover:text-white transition-colors duration-300 
-                    text-sm font-medium relative group"
-                >
-                  {item.name}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-white transition-all 
-                    duration-300 group-hover:w-full"></span>
-                </Link>
-              </motion.div>
+                <span className="relative">
+                  {label}
+                  {pathname === href && (
+                    <motion.div
+                      layoutId="underline"
+                      className="absolute left-0 right-0 bottom-[-4px] h-0.5 bg-orange-500"
+                      transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
+                    />
+                  )}
+                </span>
+              </Link>
             ))}
-          </div>
+          </nav>
+
+          {/* Mobile Menu Button */}
+          <motion.button 
+            className="md:hidden text-gray-400 hover:text-orange-400"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </motion.button>
         </div>
-      </nav>
+      </div>
     </motion.header>
   );
-};
-
-export default Header;
+}

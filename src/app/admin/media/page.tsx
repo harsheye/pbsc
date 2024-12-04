@@ -5,7 +5,7 @@ import ImageUpload from '@/components/ImageUpload';
 import { mediaService, MediaItem } from '@/services/mediaService';
 
 export default function MediaManagement() {
-  const [media, setMedia] = useState<MediaItem[]>(mediaService.getAllMedia());
+  const [media, setMedia] = useState<MediaItem[]>(() => mediaService.initializeMedia());
   const [selectedCategory, setSelectedCategory] = useState<MediaItem['category']>('event');
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
 

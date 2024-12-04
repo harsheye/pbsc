@@ -1,81 +1,56 @@
 'use client';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
-import { eventService } from '@/services/eventService';
+import { motion, AnimatePresence } from 'framer-motion';
 import { IEvent } from '@/types/event';
-import ImageUpload from './ImageUpload';
+import { eventService } from '@/services/eventService';
 
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onEventCreated: () => void;
+  event?: IEvent;
+  onEventCreated?: () => void;
+  onEventUpdated?: () => void;
 }
 
-type EventCategory = 'technical' | 'workshop' | 'seminar' | 'other';
+export default function EventModal({ 
+  isOpen, 
+  onClose, 
+  event, 
+  onEventCreated,
+  onEventUpdated 
+}: EventModalProps) {
+  const [formData, setFormData] = useState<Partial<IEvent>>(
+    event || {
+      title: '',
+      description: '',
+      date: '',
+      time: '',
+      venue: '',
+      category: 'technical',
+      isUpcoming: true,
+      images: []
+    }
+  );
 
-export default function EventModal({ isOpen, onClose, onEventCreated }: EventModalProps) {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    date: '',
-    time: '',
-    venue: '',
-    category: 'technical' as EventCategory,
-    isUpcoming: true,
-    image: '',
-    registrationLink: ''
-  });
-
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  // Get tomorrow's date in YYYY-MM-DD format
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const minDate = tomorrow.toISOString().split('T')[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Don't submit if still uploading
-    if (isUploading) {
-      return;
-    }
-
     try {
-      await eventService.addEvent(formData);
-      onEventCreated();
+      if (event) {
+        await eventService.updateEvent(event._id.toString(), formData);
+        onEventUpdated?.();
+      } else {
+        await eventService.addEvent(formData as Omit<IEvent, '_id' | 'createdAt'>);
+        onEventCreated?.();
+      }
       onClose();
-      setFormData({
-        title: '',
-        description: '',
-        date: '',
-        time: '',
-        venue: '',
-        category: 'technical' as EventCategory,
-        isUpcoming: true,
-        image: '',
-        registrationLink: ''
-      });
     } catch (error) {
-      console.error('Failed to create event:', error);
+      console.error('Failed to save event:', error);
     }
-  };
-
-  const handleImageUploadStart = () => {
-    setIsUploading(true);
-    setUploadError(null);
-  };
-
-  const handleImageUploadSuccess = (url: string) => {
-    setIsUploading(false);
-    setUploadError(null);
-    setFormData(prev => ({ ...prev, image: url }));
-  };
-
-  const handleImageUploadError = (error: any) => {
-    setIsUploading(false);
-    setUploadError(error.message || 'Failed to upload image');
-    console.error('Image upload failed:', error);
-  };
-
-  const handleModalClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
   };
 
   return (
@@ -85,167 +60,90 @@ export default function EventModal({ isOpen, onClose, onEventCreated }: EventMod
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
-          onClick={onClose}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
         >
           <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-gray-900 p-8 rounded-xl w-full max-w-2xl mx-4"
-            onClick={handleModalClick}
+            initial={{ scale: 0.95 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.95 }}
+            className="bg-gray-900 rounded-xl p-6 max-w-2xl w-full"
           >
-            <h2 className="text-2xl font-bold mb-6 text-orange-400">Create New Event</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2 
-                      focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Category
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={e => setFormData(prev => ({ 
-                      ...prev, 
-                      category: e.target.value as EventCategory 
-                    }))}
-                    className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
-                  >
-                    <option value="technical">Technical</option>
-                    <option value="workshop">Workshop</option>
-                    <option value="seminar">Seminar</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={formData.description}
-                  onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.date}
-                    onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Time
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={formData.time}
-                    onChange={e => setFormData(prev => ({ ...prev, time: e.target.value }))}
-                    className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Venue
-                </label>
+            <h2 className="text-2xl font-bold text-orange-400 mb-4">
+              {event ? 'Edit Event' : 'Create New Event'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <input
                   type="text"
+                  placeholder="Event Title"
+                  value={formData.title}
+                  onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
                   required
+                />
+                <select
+                  value={formData.category}
+                  onChange={e => setFormData(prev => ({ ...prev, category: e.target.value as IEvent['category'] }))}
+                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  required
+                >
+                  {['technical', 'workshop', 'seminar', 'other'].map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={formData.date}
+                  min={minDate}
+                  onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  required
+                />
+                <input
+                  type="time"
+                  value={formData.time}
+                  onChange={e => setFormData(prev => ({ ...prev, time: e.target.value }))}
+                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Venue"
                   value={formData.venue}
                   onChange={e => setFormData(prev => ({ ...prev, venue: e.target.value }))}
-                  className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  required
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Event Image
-                </label>
-                <div className="space-y-2">
-                  <ImageUpload
-                    category="event"
-                    onSuccess={handleImageUploadSuccess}
-                    onError={handleImageUploadError}
-                    onUploadStart={handleImageUploadStart}
-                  />
-                  {uploadError && (
-                    <p className="text-red-500 text-sm">{uploadError}</p>
-                  )}
-                  {formData.image && (
-                    <div className="relative h-40 rounded-lg overflow-hidden">
-                      <img
-                        src={formData.image}
-                        alt="Event preview"
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, image: '' }))}
-                        className="absolute top-2 right-2 bg-red-500/80 text-white p-2 rounded-full
-                          hover:bg-red-600 transition-colors"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Registration Link
-                </label>
                 <input
                   type="url"
+                  placeholder="Registration Link (optional)"
                   value={formData.registrationLink}
                   onChange={e => setFormData(prev => ({ ...prev, registrationLink: e.target.value }))}
-                  className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
+                  className="bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2"
                 />
               </div>
-
-              <div className="flex justify-end space-x-4">
+              <textarea
+                placeholder="Event Description"
+                value={formData.description}
+                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2 h-32"
+                required
+              />
+              <div className="flex justify-end gap-4">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-6 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 
-                    transition-colors"
+                  className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploading}
-                  className={`px-6 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 
-                    transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600"
                 >
-                  {isUploading ? 'Uploading...' : 'Create Event'}
+                  {event ? 'Update' : 'Create'}
                 </button>
               </div>
             </form>

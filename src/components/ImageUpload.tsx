@@ -1,15 +1,17 @@
 'use client';
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { mediaService } from '@/services/mediaService';
 
 interface ImageUploadProps {
   onSuccess: (url: string) => void;
   onError: (error: any) => void;
   onUploadStart?: () => void;
-  category?: string;
+  category: 'event' | 'leader';
+  title?: string;
 }
 
-export default function ImageUpload({ onSuccess, onError, onUploadStart, category = 'other' }: ImageUploadProps) {
+export default function ImageUpload({ onSuccess, onError, onUploadStart, category, title = 'Uploaded file' }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,11 +35,15 @@ export default function ImageUpload({ onSuccess, onError, onUploadStart, categor
         throw new Error(data.error || 'Upload failed');
       }
 
-      // Ensure the URL is absolute
-      const baseUrl = window.location.origin;
-      const absoluteUrl = data.url.startsWith('http') ? data.url : `${baseUrl}${data.url}`;
-      
-      onSuccess(absoluteUrl);
+      mediaService.addMedia({
+        url: data.url,
+        type: data.type,
+        title,
+        category,
+        fileType: data.fileType
+      });
+
+      onSuccess(data.url);
     } catch (error) {
       console.error('Upload error:', error);
       onError(error instanceof Error ? error.message : 'Upload failed');

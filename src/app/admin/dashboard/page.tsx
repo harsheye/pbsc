@@ -7,6 +7,7 @@ import { eventService } from '@/services/eventService';
 import { contactService } from '@/services/contactService';
 import EventModal from '@/components/EventModal';
 import LeadershipManagement from '@/components/LeadershipManagement';
+import TeamModal from '@/components/TeamModal';
 
 export default function AdminDashboard() {
   const [events, setEvents] = useState<IEvent[]>([]);
@@ -21,27 +22,56 @@ export default function AdminDashboard() {
     category: 'technical' as const,
     isUpcoming: true
   });
-  const [activeTab, setActiveTab] = useState<'events' | 'contacts' | 'leadership' | 'media'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'contacts' | 'leadership' | 'media' | 'faculty'>('events');
   const [contacts, setContacts] = useState<IContactSubmission[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState({
+    events: false,
+    contacts: false
+  });
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [teamModalType, setTeamModalType] = useState<'faculty' | 'leadership' | 'chapter'>('faculty');
 
   useEffect(() => {
     loadEvents();
     loadContacts();
   }, []);
 
-  const loadEvents = () => {
-    setEvents(eventService.getAllEvents());
+  const loadEvents = async () => {
+    setIsLoading(prev => ({ ...prev, events: true }));
+    try {
+      const data = await eventService.getAllEvents();
+      setEvents(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load events:', error);
+      setEvents([]);
+    } finally {
+      setIsLoading(prev => ({ ...prev, events: false }));
+    }
   };
 
-  const loadContacts = () => {
-    setContacts(contactService.getAllSubmissions());
+  const loadContacts = async () => {
+    setIsLoading(prev => ({ ...prev, contacts: true }));
+    try {
+      const data = await contactService.getAllSubmissions();
+      setContacts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load contacts:', error);
+      setContacts([]);
+    } finally {
+      setIsLoading(prev => ({ ...prev, contacts: false }));
+    }
   };
 
-  const handleCreateEvent = () => {
+  const handleCreateEvent = async () => {
     if (newEvent.title && newEvent.date) {
-      const created = eventService.addEvent(newEvent as Omit<IEvent, 'id'>);
-      if (created) {
+      try {
+        const formData = new FormData();
+        Object.entries(newEvent).forEach(([key, value]) => {
+          formData.append(key, value.toString());
+        });
+
+        await eventService.addEvent(formData);
         setIsCreating(false);
         setNewEvent({
           title: '',
@@ -53,29 +83,48 @@ export default function AdminDashboard() {
           isUpcoming: true
         });
         loadEvents();
+      } catch (error) {
+        console.error('Failed to create event:', error);
       }
     }
   };
 
-  const handleUpdateEvent = () => {
+  const handleUpdateEvent = async () => {
     if (editingEvent) {
-      eventService.updateEvent(editingEvent.id, editingEvent);
-      setEditingEvent(null);
-      loadEvents();
+      try {
+        const formData = new FormData();
+        Object.entries(editingEvent).forEach(([key, value]) => {
+          formData.append(key, value.toString());
+        });
+
+        await eventService.updateEvent(editingEvent._id, formData);
+        setEditingEvent(null);
+        loadEvents();
+      } catch (error) {
+        console.error('Failed to update event:', error);
+      }
     }
   };
 
-  const handleDeleteEvent = (id: string) => {
+  const handleDeleteEvent = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this event?')) {
-      eventService.deleteEvent(id);
-      loadEvents();
+      try {
+        await eventService.deleteEvent(id);
+        loadEvents();
+      } catch (error) {
+        console.error('Failed to delete event:', error);
+      }
     }
   };
 
-  const handleDeleteContact = (uid: string) => {
+  const handleDeleteContact = async (uid: string) => {
     if (window.confirm('Are you sure you want to delete this contact submission?')) {
-      contactService.deleteSubmission(uid);
-      loadContacts();
+      try {
+        await contactService.deleteSubmission(uid);
+        loadContacts();
+      } catch (error) {
+        console.error('Failed to delete contact:', error);
+      }
     }
   };
 
@@ -134,6 +183,18 @@ export default function AdminDashboard() {
               }`}
             >
               Media Library
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setActiveTab('faculty')}
+              className={`px-6 py-2 rounded-lg transition-all ${
+                activeTab === 'faculty' 
+                  ? 'bg-orange-500 text-white' 
+                  : 'bg-white/10 text-white'
+              }`}
+            >
+              Faculty
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -224,9 +285,9 @@ export default function AdminDashboard() {
 
               {/* Events List */}
               <div className="space-y-4">
-                {events.map((event) => (
+                {Array.isArray(events) && events.map((event) => (
                   <motion.div
-                    key={event.id}
+                    key={event._id}
                     className="bg-white/5 p-6 rounded-xl backdrop-blur-sm flex justify-between items-center"
                   >
                     <div>
@@ -251,7 +312,7 @@ export default function AdminDashboard() {
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => handleDeleteEvent(event.id)}
+                        onClick={() => handleDeleteEvent(event._id)}
                         className="bg-red-500 text-white px-4 py-2 rounded-lg"
                       >
                         Delete
@@ -315,6 +376,30 @@ export default function AdminDashboard() {
             </motion.div>
           ) : activeTab === 'leadership' ? (
             <LeadershipManagement />
+          ) : activeTab === 'faculty' ? (
+            <motion.div
+              key="faculty"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-4"
+            >
+              <div className="flex justify-end mb-6">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setTeamModalType('faculty');
+                    setIsTeamModalOpen(true);
+                  }}
+                  className="bg-orange-500 text-white px-6 py-2 rounded-lg"
+                >
+                  Add Faculty Member
+                </motion.button>
+              </div>
+
+              {/* Faculty list will go here */}
+            </motion.div>
           ) : (
             <motion.div
               key="media"
@@ -332,6 +417,12 @@ export default function AdminDashboard() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onEventCreated={loadEvents}
+      />
+      <TeamModal
+        isOpen={isTeamModalOpen}
+        onClose={() => setIsTeamModalOpen(false)}
+        type={teamModalType}
+        onMemberAdded={loadTeamMembers}
       />
     </main>
   );

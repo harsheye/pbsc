@@ -1,4 +1,5 @@
 export interface LeadershipMember {
+  id: string;
   name: string;
   position: string;
   education: string;
@@ -9,6 +10,7 @@ export interface LeadershipMember {
 }
 
 export interface ChapterMember {
+  id: string;
   name: string;
   position: string;
   image: string;
