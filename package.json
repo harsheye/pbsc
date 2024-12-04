@@ -16,7 +16,9 @@
     "express": "^4.18.2",
     "next": "15.0.3",
     "react": "19.0.0-rc-66855b96-20241106",
-    "react-dom": "19.0.0-rc-66855b96-20241106"
+    "react-dom": "19.0.0-rc-66855b96-20241106",
+    "react-tsparticles": "^2.12.2",
+    "tsparticles": "^3.7.1"
   },
   "devDependencies": {
     "@types/react": "18.3.12",

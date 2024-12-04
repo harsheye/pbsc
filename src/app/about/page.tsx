@@ -1,8 +1,11 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import Footer from '@/components/Footer';
+import { loadFull } from "tsparticles";
+import type { Container, Engine } from "tsparticles-engine";
+import Particles from "react-tsparticles";
 
 const DEFAULT_IMAGE = '/images/default.png';
 
@@ -151,138 +154,343 @@ const memberVariants = {
   }
 };
 
-// Add this new component for the traveling point animation
-const TravelingPoint = ({ paths }: { paths: string[] }) => {
+// Add this new component for the traveling point that follows hierarchy
+const HierarchyPoint = ({ positions }: { positions: { x: number; y: number }[] }) => {
   return (
     <motion.circle
-      r={3}
+      r={4}
       fill="white"
       filter="url(#glow)"
       animate={{
-        offsetPath: paths.map(p => `path("${p}")`),
-        scale: [1, 1.5, 1],
+        cx: positions.map(p => p.x),
+        cy: positions.map(p => p.y)
       }}
       transition={{
-        duration: 8,
+        duration: positions.length * 2,
         ease: "linear",
         repeat: Infinity,
         repeatType: "loop"
       }}
     >
-      {/* Glow filter */}
+      {/* Enhanced glow filter */}
       <defs>
         <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="2" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#f97316" floodOpacity="0.5" />
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feFlood floodColor="#f97316" floodOpacity="0.5" />
+          <feComposite in2="blur" operator="in" />
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
       </defs>
     </motion.circle>
   );
 };
 
-// Update the hierarchy visualization
-const HierarchyVisualization = ({ members }: { members: LeadershipMember[] }) => {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [paths, setPaths] = useState<string[]>([]);
-  const [connections, setConnections] = useState<{ from: string; to: string; path: string }[]>([]);
+// Update Arrow component for smoother, direct connections
+const Arrow = ({ start, end, color = "rgba(249,115,22,0.3)" }: { 
+  start: { x: number; y: number }; 
+  end: { x: number; y: number }; 
+  color?: string;
+}) => {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  
+  // Calculate control points for a smooth curve
+  const midY = start.y + dy / 2;
+  const cp1y = midY;
+  const cp2y = midY;
+  const cp1x = start.x;
+  const cp2x = end.x;
 
-  useEffect(() => {
-    if (!svgRef.current) return;
-
-    const positions = new Map<string, { x: number; y: number }>();
-    const newPaths: string[] = [];
-    const newConnections: typeof connections = [];
-
-    // Calculate positions for each member
-    members.forEach((member, i) => {
-      const level = HIERARCHY_LEVELS[member.position as keyof typeof HIERARCHY_LEVELS] || 0;
-      const angle = (i / members.length) * Math.PI * 2;
-      const radius = 150 + level * 50; // Adjust radius based on hierarchy level
-      const x = Math.cos(angle) * radius + 300; // Center point
-      const y = Math.sin(angle) * radius + 300;
-      positions.set(member._id, { x, y });
-    });
-
-    // Create connections between all nodes
-    members.forEach((member, i) => {
-      members.slice(i + 1).forEach(otherMember => {
-        const fromPos = positions.get(member._id)!;
-        const toPos = positions.get(otherMember._id)!;
-        
-        // Create curved path
-        const midX = (fromPos.x + toPos.x) / 2;
-        const midY = (fromPos.y + toPos.y) / 2;
-        const curve = 30; // Curve intensity
-        const controlX = midX + curve * Math.cos((Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x) + Math.PI/2));
-        const controlY = midY + curve * Math.sin((Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x) + Math.PI/2));
-        
-        const path = `M ${fromPos.x} ${fromPos.y} Q ${controlX} ${controlY} ${toPos.x} ${toPos.y}`;
-        newPaths.push(path);
-        newConnections.push({
-          from: member._id,
-          to: otherMember._id,
-          path
-        });
-      });
-    });
-
-    setPaths(newPaths);
-    setConnections(newConnections);
-  }, [members]);
+  // Create a cubic Bezier curve path
+  const path = `
+    M ${start.x},${start.y}
+    C ${cp1x},${cp1y} ${cp2x},${cp2y} ${end.x},${end.y}
+  `;
 
   return (
-    <div className="relative w-full h-[600px] overflow-hidden">
-      <svg ref={svgRef} className="absolute inset-0 w-full h-full" viewBox="0 0 600 600">
-        {/* Connection lines */}
-        {connections.map((connection, i) => (
-          <g key={`connection-${i}`}>
-            <path
-              d={connection.path}
-              fill="none"
-              stroke="rgba(249,115,22,0.1)"
-              strokeWidth="1"
-              className="transition-all duration-300"
+    <g>
+      {/* Main path */}
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        className="transition-all duration-300"
+      />
+      
+      {/* Arrowhead */}
+      <circle
+        cx={end.x}
+        cy={end.y}
+        r="3"
+        fill={color}
+        className="transition-all duration-300"
+      />
+    </g>
+  );
+};
+
+// Update HierarchyVisualization component for hub-and-spoke design
+const HierarchyVisualization = ({ members }: { members: Member[] }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const nodeRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [arrows, setArrows] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } }[]>([]);
+
+  // Group members by level
+  const membersByLevel = members.reduce((acc, member) => {
+    const level = HIERARCHY_LEVELS[member.position as keyof typeof HIERARCHY_LEVELS]?.level || 0;
+    if (!acc[level]) acc[level] = [];
+    acc[level].push(member);
+    return acc;
+  }, {} as { [key: number]: Member[] });
+
+  useEffect(() => {
+    const calculateArrows = () => {
+      const newArrows: typeof arrows = [];
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (!containerRect) return;
+
+      // Get all nodes positions
+      const positions = new Map<string, { x: number; y: number }>();
+      Object.values(nodeRefs.current).forEach(node => {
+        if (!node) return;
+        const rect = node.getBoundingClientRect();
+        const id = node.getAttribute('data-id');
+        if (!id) return;
+        positions.set(id, {
+          x: rect.left - containerRect.left + rect.width / 2,
+          y: rect.top - containerRect.top + rect.height / 2
+        });
+      });
+
+      // Connect each level to the next
+      Object.entries(membersByLevel).forEach(([level, levelMembers], index) => {
+        const nextLevel = membersByLevel[Number(level) + 1];
+        if (!nextLevel) return;
+
+        levelMembers.forEach(member => {
+          const startPos = positions.get(member._id);
+          if (!startPos) return;
+
+          // Connect to all members in next level
+          nextLevel.forEach(nextMember => {
+            const endPos = positions.get(nextMember._id);
+            if (!endPos) return;
+
+            newArrows.push({
+              start: startPos,
+              end: endPos
+            });
+          });
+        });
+      });
+
+      setArrows(newArrows);
+    };
+
+    calculateArrows();
+    window.addEventListener('resize', calculateArrows);
+    return () => window.removeEventListener('resize', calculateArrows);
+  }, [members, membersByLevel]);
+
+  return (
+    <div ref={containerRef} className="relative w-full min-h-[800px]">
+      {/* Connecting Lines */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none">
+        {arrows.map((arrow, i) => (
+          <g key={i}>
+            <line
+              x1={arrow.start.x}
+              y1={arrow.start.y}
+              x2={arrow.end.x}
+              y2={arrow.end.y}
+              stroke="rgba(249,115,22,0.3)"
+              strokeWidth="2"
+            />
+            {/* Add dots at connection points */}
+            <circle
+              cx={arrow.start.x}
+              cy={arrow.start.y}
+              r="3"
+              fill="rgba(249,115,22,0.5)"
+            />
+            <circle
+              cx={arrow.end.x}
+              cy={arrow.end.y}
+              r="3"
+              fill="rgba(249,115,22,0.5)"
             />
           </g>
         ))}
-
-        {/* Traveling points */}
-        {paths.map((path, i) => (
-          <TravelingPoint key={`point-${i}`} paths={[path]} />
-        ))}
-
-        {/* Member nodes */}
-        {members.map((member, i) => {
-          const level = HIERARCHY_LEVELS[member.position as keyof typeof HIERARCHY_LEVELS] || 0;
-          const angle = (i / members.length) * Math.PI * 2;
-          const radius = 150 + level * 50;
-          const x = Math.cos(angle) * radius + 300;
-          const y = Math.sin(angle) * radius + 300;
-
-          return (
-            <g key={member._id} transform={`translate(${x},${y})`}>
-              <motion.circle
-                r={20}
-                fill="rgba(249,115,22,0.1)"
-                stroke="rgba(249,115,22,0.3)"
-                strokeWidth="2"
-                whileHover={{ scale: 1.2 }}
-                className="cursor-pointer transition-all duration-300"
-              />
-              <text
-                textAnchor="middle"
-                dy=".3em"
-                className="text-xs fill-white font-medium pointer-events-none"
-              >
-                {member.position}
-              </text>
-            </g>
-          );
-        })}
       </svg>
+
+      {/* Nodes Layout */}
+      <div className="relative flex flex-col items-center gap-32">
+        {/* Center Node (Chairperson) */}
+        <div className="relative">
+          {members.filter(m => m.position === 'Chairperson').map(member => (
+            <div
+              key={member._id}
+              ref={el => nodeRefs.current[member._id] = el}
+              data-id={member._id}
+              className="relative"
+            >
+              <MemberNode member={member} />
+            </div>
+          ))}
+        </div>
+
+        {/* Vice Chairperson */}
+        <div className="relative">
+          {members.filter(m => m.position === 'Vice Chairperson').map(member => (
+            <div
+              key={member._id}
+              ref={el => nodeRefs.current[member._id] = el}
+              data-id={member._id}
+              className="relative"
+            >
+              <MemberNode member={member} />
+            </div>
+          ))}
+        </div>
+
+        {/* Secretary and Joint Secretary */}
+        <div className="flex justify-center gap-64">
+          {members
+            .filter(m => HIERARCHY_LEVELS[m.position as keyof typeof HIERARCHY_LEVELS]?.level === 2)
+            .map(member => (
+              <div
+                key={member._id}
+                ref={el => nodeRefs.current[member._id] = el}
+                data-id={member._id}
+                className="relative"
+              >
+                <MemberNode member={member} />
+              </div>
+            ))}
+        </div>
+
+        {/* Other Members */}
+        <div className="grid grid-cols-4 gap-16">
+          {members
+            .filter(m => HIERARCHY_LEVELS[m.position as keyof typeof HIERARCHY_LEVELS]?.level === 3)
+            .map(member => (
+              <div
+                key={member._id}
+                ref={el => nodeRefs.current[member._id] = el}
+                data-id={member._id}
+                className="relative"
+              >
+                <MemberNode member={member} />
+              </div>
+            ))}
+        </div>
+      </div>
     </div>
   );
+};
+
+// Add a MemberNode component for consistent styling
+const MemberNode = ({ member }: { member: Member }) => (
+  <motion.div
+    whileHover={{ scale: 1.05 }}
+    className="w-40 h-40 rounded-full bg-white/5 backdrop-blur-sm border border-orange-500/30
+      flex items-center justify-center text-center p-4 cursor-pointer"
+  >
+    <div>
+      <div className="font-bold text-orange-500">{member.position}</div>
+      <div className="text-sm text-gray-300 mt-2">{member.name}</div>
+    </div>
+  </motion.div>
+);
+
+// Particles configuration
+const particlesConfig = {
+  particles: {
+    number: {
+      value: 50,
+      density: { enable: true, value_area: 800 }
+    },
+    color: { value: "#f97316" },
+    shape: { type: "circle" },
+    opacity: {
+      value: 0.5,
+      random: true
+    },
+    size: {
+      value: 3,
+      random: true
+    },
+    line_linked: {
+      enable: true,
+      distance: 150,
+      color: "#f97316",
+      opacity: 0.2,
+      width: 1
+    },
+    move: {
+      enable: true,
+      speed: 2,
+      direction: "none",
+      random: true,
+      straight: false,
+      out_mode: "out",
+      bounce: false
+    }
+  },
+  interactivity: {
+    detect_on: "canvas",
+    events: {
+      onhover: {
+        enable: true,
+        mode: "grab"
+      },
+      onclick: {
+        enable: true,
+        mode: "push"
+      },
+      resize: true
+    },
+    modes: {
+      grab: {
+        distance: 140,
+        line_linked: { opacity: 0.5 }
+      },
+      push: { particles_nb: 4 }
+    }
+  },
+  retina_detect: true
+};
+
+// Card animation variants
+const cardVariants = {
+  hidden: { 
+    opacity: 0, 
+    y: 50,
+    scale: 0.9
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15,
+      duration: 0.6
+    }
+  },
+  exit: {
+    opacity: 0,
+    y: -50,
+    scale: 0.9,
+    transition: {
+      duration: 0.3
+    }
+  }
 };
 
 export default function AboutPage() {
@@ -356,6 +564,14 @@ export default function AboutPage() {
     return levels;
   };
 
+  const particlesInit = useCallback(async (engine: Engine) => {
+    await loadFull(engine);
+  }, []);
+
+  const particlesLoaded = useCallback(async (container: Container | undefined) => {
+    console.log(container);
+  }, []);
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white pt-24">
@@ -390,8 +606,14 @@ export default function AboutPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white pt-24 relative">
-      {/* Add keyframes to the page */}
-      <style jsx global>{shimmerKeyframes}</style>
+      {/* Particles Background */}
+      <Particles
+        id="tsparticles"
+        init={particlesInit}
+        loaded={particlesLoaded}
+        options={particlesConfig}
+        className="absolute inset-0"
+      />
 
       {/* Retro Grid Background */}
       <div 
@@ -404,28 +626,25 @@ export default function AboutPage() {
         {/* Faculty Section */}
         <motion.section 
           className="mb-32"
+          variants={sectionVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          variants={scrollVariants}
         >
-          <h2 className="text-3xl font-bold mb-8 bg-gradient-to-r from-orange-500 to-secondary text-transparent bg-clip-text">
+          <h2 className="text-3xl font-bold mb-16 bg-gradient-to-r from-orange-500 to-secondary text-transparent bg-clip-text">
             Faculty Members
           </h2>
-          <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
             {facultyMembers.map((member) => (
-              <MemberCard
-                key={member._id}
-                member={member}
-              />
+              <MemberCard key={member._id} member={member} />
             ))}
           </div>
         </motion.section>
 
-        {/* Team Section with Hierarchy */}
+        {/* Team Section */}
         <motion.section
           className="mb-32"
-          variants={containerVariants}
+          variants={sectionVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
@@ -433,77 +652,12 @@ export default function AboutPage() {
           <h2 className="text-3xl font-bold mb-16 bg-gradient-to-r from-orange-500 to-secondary text-transparent bg-clip-text">
             Team Members
           </h2>
-          <div className="relative space-y-32">
-            {/* Connecting Lines */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none">
-              {Object.entries(organizeTeamByHierarchy(teamMembers)).map(([level, members], levelIndex) => {
-                if (levelIndex === 0) return null; // Skip first level (Chairperson)
-                
-                const prevLevelMembers = teamMembers.filter(
-                  m => HIERARCHY_LEVELS[m.position as keyof typeof HIERARCHY_LEVELS]?.level === levelIndex - 1
-                );
-                
-                return members.map((member, memberIndex) => {
-                  const parentIndex = Math.floor(memberIndex / 2);
-                  const parent = prevLevelMembers[parentIndex];
-                  if (!parent) return null;
-
-                  const startX = `${(parentIndex + 0.5) * (100 / prevLevelMembers.length)}%`;
-                  const endX = `${(memberIndex + 0.5) * (100 / members.length)}%`;
-                  const startY = levelIndex * 350 - 100; // Adjust based on card height
-                  const endY = levelIndex * 350;
-
-                  return (
-                    <g key={member._id}>
-                      <line
-                        x1={startX}
-                        y1={startY}
-                        x2={endX}
-                        y2={endY}
-                        stroke="rgba(249, 115, 22, 0.4)"
-                        strokeWidth="3"
-                        strokeDasharray="4 4"
-                      />
-                    </g>
-                  );
-                });
-              })}
-            </svg>
-
-            {/* Team Members Grid */}
-            {Object.entries(organizeTeamByHierarchy(teamMembers)).map(([level, members]) => (
-              <motion.div 
-                key={level}
-                className="relative"
-                variants={levelVariants}
-                viewport={{ once: true, margin: "-100px" }}
-              >
-                <div className={`grid ${
-                  level === '0' ? 'justify-center' : 
-                  level === '1' ? 'justify-center' :
-                  level === '2' ? 'grid-cols-2 gap-24 justify-center max-w-4xl mx-auto' :
-                  'grid-cols-4 gap-8'
-                }`}>
-                  {members.map((member) => (
-                    <motion.div
-                      key={member._id}
-                      variants={memberVariants[Number(level)]}
-                      whileHover={{ 
-                        y: -10, 
-                        transition: { duration: 0.2 }
-                      }}
-                    >
-                      <MemberCard member={member} />
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
+            {teamMembers.map((member) => (
+              <MemberCard key={member._id} member={member} />
             ))}
           </div>
         </motion.section>
-
-        {/* Spacer for visual breathing room */}
-        <div className="h-32" />
       </div>
 
       {/* Add a subtle gradient overlay */}
@@ -517,7 +671,14 @@ export default function AboutPage() {
 
 function MemberCard({ member }: { member: Member }) {
   return (
-    <div className="relative h-72 w-72 rounded-lg overflow-hidden group">
+    <motion.div 
+      variants={cardVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      whileHover={{ y: -10 }}
+      className="relative h-72 w-72 rounded-lg overflow-hidden group"
+    >
       {/* Shimmer Border */}
       <div className="absolute inset-0 rounded-lg p-[2px] z-0">
         <div className="absolute inset-0 rounded-lg" style={shimmerStyle} />
@@ -530,7 +691,7 @@ function MemberCard({ member }: { member: Member }) {
         <img
           src={member.image.replace('/public', '') || DEFAULT_IMAGE}
           alt={member.name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             target.src = DEFAULT_IMAGE;
@@ -557,10 +718,12 @@ function MemberCard({ member }: { member: Member }) {
               href={member.linkedIn}
               target="_blank"
               rel="noopener noreferrer"
-              className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300
+                w-10 h-10 bg-black/50 rounded-full flex items-center justify-center
+                hover:bg-orange-500/50 hover:scale-110"
             >
               <svg
-                className="w-8 h-8 text-white hover:text-orange-400"
+                className="w-5 h-5 text-white"
                 fill="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -570,6 +733,6 @@ function MemberCard({ member }: { member: Member }) {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 } 

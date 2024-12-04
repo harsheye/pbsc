@@ -1,111 +1,93 @@
 'use client';
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { mediaService } from '@/services/mediaService';
+import axios from 'axios';
 
-interface ImageUploadProps {
+export interface ImageUploadProps {
   onSuccess: (url: string) => void;
-  onError: (error: any) => void;
-  onUploadStart?: () => void;
-  category: 'event' | 'leader';
-  title?: string;
+  currentImage?: string;
+  className?: string;
 }
 
-export default function ImageUpload({ onSuccess, onError, onUploadStart, category, title = 'Uploaded file' }: ImageUploadProps) {
+export default function ImageUpload({ onSuccess, currentImage, className = '' }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(currentImage || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = async (file: File) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     try {
       setUploading(true);
-      onUploadStart?.();
-
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('category', category);
+      formData.append('image', file);
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
+      const response = await axios.post('http://localhost:5000/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Upload failed');
+      if (response.data.imageUrl) {
+        setPreview(response.data.imageUrl);
+        onSuccess(response.data.imageUrl);
       }
-
-      mediaService.addMedia({
-        url: data.url,
-        type: data.type,
-        title,
-        category,
-        fileType: data.fileType
-      });
-
-      onSuccess(data.url);
     } catch (error) {
-      console.error('Upload error:', error);
-      onError(error instanceof Error ? error.message : 'Upload failed');
+      console.error('Error uploading image:', error);
     } finally {
       setUploading(false);
     }
   };
 
-  const validateFile = (file: File): boolean => {
-    const validImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    const validVideoTypes = ['video/mp4', 'video/webm'];
-    const validTypes = [...validImageTypes, ...validVideoTypes];
-
-    if (!validTypes.includes(file.type)) {
-      onError('Invalid file type. Please use JPG, PNG, WebP for images or MP4, WebM for videos.');
-      return false;
-    }
-
-    // Max size: 10MB for images, 50MB for videos
-    const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      onError(`File size too large. Maximum size is ${maxSize / (1024 * 1024)}MB.`);
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleButtonClick = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent form submission
-    fileInputRef.current?.click();
-  };
-
   return (
-    <div className="relative">
+    <div className={`relative ${className}`}>
       <input
         type="file"
         ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
         className="hidden"
-        accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file && validateFile(file)) {
-            handleUpload(file);
-          }
-        }}
       />
-      <motion.button
-        type="button"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={handleButtonClick}
-        disabled={uploading}
-        className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-3
-          hover:bg-black/70 transition-all duration-300 disabled:opacity-50"
-      >
-        {uploading ? 'Uploading...' : 'Choose File'}
-      </motion.button>
-      {uploading && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
-          <div className="text-white">Uploading...</div>
+      
+      {preview ? (
+        <div className="relative w-32 h-32 mx-auto">
+          <img
+            src={preview}
+            alt="Preview"
+            className="w-full h-full object-cover rounded-lg"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity
+              flex items-center justify-center text-white rounded-lg"
+          >
+            Change Image
+          </button>
         </div>
+      ) : (
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full h-32 border-2 border-dashed border-orange-500/30 rounded-lg
+            flex items-center justify-center text-gray-400 hover:text-orange-500
+            hover:border-orange-500 transition-colors"
+          disabled={uploading}
+        >
+          {uploading ? (
+            <div className="flex items-center space-x-2">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full"
+              />
+              <span>Uploading...</span>
+            </div>
+          ) : (
+            <span>Click to upload image</span>
+          )}
+        </motion.button>
       )}
     </div>
   );
