@@ -29,3 +29,20 @@ html {
     min-height: -webkit-fill-available;
   }
 } 
+
+/* DatePicker customization */
+.react-datepicker {
+  @apply bg-gray-900 border border-orange-500/20 rounded-lg shadow-xl !important;
+}
+
+.react-datepicker__header {
+  @apply bg-black/30 border-orange-500/20 !important;
+}
+
+.react-datepicker__year-text {
+  @apply text-gray-300 hover:bg-orange-500/20 !important;
+}
+
+.react-datepicker__year-text--selected {
+  @apply bg-orange-500 text-white !important;
+} 

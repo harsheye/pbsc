@@ -129,9 +129,9 @@ export default function AdminDashboard() {
         
         {/* Events Section */}
         <div className="bg-black/30 rounded-lg overflow-hidden border border-orange-500/20">
-          <button
+          <div
             onClick={() => toggleSection('events')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
           >
             <h2 className="text-xl font-semibold">Events</h2>
             <button
@@ -144,7 +144,7 @@ export default function AdminDashboard() {
             >
               Add Event
             </button>
-          </button>
+          </div>
           
           <AnimatePresence>
             {openSections.includes('events') && (
@@ -166,16 +166,18 @@ export default function AdminDashboard() {
                       </div>
                       <h3 className="text-lg font-semibold mb-2">{event.title}</h3>
                       <p className="text-sm text-gray-400 mb-4">{event.description}</p>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedEvent(event);
-                            setIsEventModalOpen(true);
-                          }}
-                          className="px-3 py-1 bg-orange-500/20 rounded hover:bg-orange-500/30 transition-colors"
-                        >
-                          Edit
-                        </button>
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm text-gray-400">
+                          <p>{new Date(event.date).toLocaleDateString()}</p>
+                          <p>{event.venue}</p>
+                        </div>
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          event.isUpcoming 
+                            ? 'bg-green-500/20 text-green-400' 
+                            : 'bg-orange-500/20 text-orange-400'
+                        }`}>
+                          {event.isUpcoming ? 'Upcoming' : 'Past'}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -187,9 +189,9 @@ export default function AdminDashboard() {
 
         {/* Team Section */}
         <div className="bg-black/30 rounded-lg overflow-hidden border border-orange-500/20">
-          <button
+          <div
             onClick={() => toggleSection('team')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
           >
             <h2 className="text-xl font-semibold">Team Members</h2>
             <button
@@ -202,7 +204,7 @@ export default function AdminDashboard() {
             >
               Add Member
             </button>
-          </button>
+          </div>
           
           <AnimatePresence>
             {openSections.includes('team') && (
@@ -246,9 +248,9 @@ export default function AdminDashboard() {
 
         {/* Faculty Section */}
         <div className="bg-black/30 rounded-lg overflow-hidden border border-orange-500/20">
-          <button
+          <div
             onClick={() => toggleSection('faculty')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
           >
             <h2 className="text-xl font-semibold">Faculty Members</h2>
             <button
@@ -261,7 +263,7 @@ export default function AdminDashboard() {
             >
               Add Faculty
             </button>
-          </button>
+          </div>
           
           <AnimatePresence>
             {openSections.includes('faculty') && (
@@ -305,9 +307,9 @@ export default function AdminDashboard() {
 
         {/* Media Section */}
         <div className="bg-black/30 rounded-lg overflow-hidden border border-orange-500/20">
-          <button
+          <div
             onClick={() => toggleSection('media')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
           >
             <h2 className="text-xl font-semibold">Media Gallery</h2>
             <button
@@ -319,7 +321,7 @@ export default function AdminDashboard() {
             >
               Upload Media
             </button>
-          </button>
+          </div>
           
           <AnimatePresence>
             {openSections.includes('media') && (
@@ -357,9 +359,7 @@ export default function AdminDashboard() {
         <EventModal
           isOpen={isEventModalOpen}
           onClose={() => setIsEventModalOpen(false)}
-          event={selectedEvent}
           onEventCreated={fetchEvents}
-          onEventUpdated={fetchEvents}
         />
 
         <TeamModal
