@@ -11,7 +11,7 @@ interface TeamMember {
   education: string;
   year: number;
   course: string;
-  image: string;
+  image?: string;
   linkedIn: string;
 }
 
@@ -78,7 +78,7 @@ export default function TeamManagement() {
             className="bg-black/30 rounded-lg p-6 border border-orange-500/20"
           >
             <img
-              src={member.image}
+              src={member.image || '/images/default-avatar.png'}
               alt={member.name}
               className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
             />
@@ -221,7 +221,7 @@ function MemberModal({ member, onClose, onSubmit }: {
             <ImageUpload
               category="team"
               aspectRatio={1}
-              currentImage={member?.image}
+              currentImage={member?.image || ''}
               onSuccess={(url) => {
                 const input = document.createElement('input');
                 input.type = 'hidden';

@@ -17,7 +17,7 @@ interface IEvent {
   venue: string;
   category: 'workshop' | 'seminar' | 'conference' | 'other';
   isUpcoming: boolean;
-  image: string;
+  image?: string;
   imageStack: string[];
   createdAt: string;
   registrationLink?: string;
@@ -200,7 +200,7 @@ export default function Events() {
               >
                 <div className="relative h-48">
                   <Image
-                    src={event.image.replace('/public', '') || '/images/default.png'}
+                    src={(event.image ? event.image.replace('/public', '') : '') || '/images/default.png'}
                     alt={event.title}
                     fill
                     className="object-cover"
@@ -211,7 +211,9 @@ export default function Events() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                   <span className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs ${
-                    event.isUpcoming ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-500/20 text-gray-400'
+                    event.isUpcoming 
+                      ? 'bg-black/80 text-orange-400' 
+                      : 'bg-black/80 text-gray-400'
                   }`}>
                     {event.isUpcoming ? 'Upcoming' : 'Past'}
                   </span>
@@ -242,7 +244,7 @@ export default function Events() {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                         >
-                          Register
+                          Register Now
                           <svg 
                             className="w-4 h-4" 
                             fill="none" 

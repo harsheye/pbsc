@@ -1,383 +1,349 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import axios from 'axios';
-import EventModal from '@/components/EventModal';
-import TeamModal from '@/components/TeamModal';
-import FacultyModal from '@/components/FacultyModal';
-import ImageUpload from '@/components/ImageUpload';
-import { IEvent } from '@/types/event';
-import { ITeamMember } from '@/types/team';
-import { IFaculty } from '@/types/faculty';
-import { useRouter } from 'next/navigation';
-import { ADMIN_CREDENTIALS } from '@/constants/auth';
 
-type Section = 'events' | 'team' | 'faculty' | 'media';
+type ActiveTab = 'team' | 'faculty' | 'events' | 'contact';
 
-export default function AdminDashboard() {
-  const router = useRouter();
-  
-  // All state declarations first
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [openSections, setOpenSections] = useState<Section[]>(['events']);
-  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  const [isFacultyModalOpen, setIsFacultyModalOpen] = useState(false);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [events, setEvents] = useState<IEvent[]>([]);
-  const [teamMembers, setTeamMembers] = useState<ITeamMember[]>([]);
-  const [facultyMembers, setFacultyMembers] = useState<IFaculty[]>([]);
-  const [mediaItems, setMediaItems] = useState<string[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<IEvent | null>(null);
-  const [selectedMember, setSelectedMember] = useState<ITeamMember | null>(null);
-  const [selectedFaculty, setSelectedFaculty] = useState<IFaculty | null>(null);
-  const [loading, setLoading] = useState({
-    events: false,
-    team: false,
-    faculty: false,
-    media: false
-  });
+interface TeamMember {
+  _id: string;
+  name: string;
+  position: string;
+  education: string;
+  year: number;
+  course: string;
+  image: string;
+  linkedIn: string;
+}
 
-  // Auth check effect
+interface Faculty {
+  _id: string;
+  name: string;
+  position: string;
+  education: string;
+  image: string;
+  linkedIn: string;
+}
+
+interface Event {
+  _id: string;
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  venue: string;
+  category: 'workshop' | 'seminar' | 'conference' | 'other';
+  isUpcoming: boolean;
+  mainImage: string;
+  registrationLink?: string;
+}
+
+interface Contact {
+  _id: string;
+  uid: string;
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  description: string;
+}
+
+interface ModalState {
+  isOpen: boolean;
+  type: 'add' | 'edit';
+  data?: Event;
+}
+
+export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('team');
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [faculty, setFaculty] = useState<Faculty[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalState, setModalState] = useState<ModalState>({ isOpen: false, type: 'add' });
+
+  const tabs = [
+    { id: 'team', label: 'Team Members', icon: '👥' },
+    { id: 'faculty', label: 'Faculty', icon: '👨‍🏫' },
+    { id: 'events', label: 'Events', icon: '📅' },
+    { id: 'contact', label: 'Contact', icon: '📞' }
+  ];
+
   useEffect(() => {
-    const username = localStorage.getItem('adminUsername');
-    const password = localStorage.getItem('adminPassword');
-    
-    if (username !== ADMIN_CREDENTIALS.username || password !== ADMIN_CREDENTIALS.password) {
-      router.push('/admin/login');
-    } else {
-      setIsAuthenticated(true);
-    }
-  }, [router]);
+    fetchData();
+  }, [activeTab]);
 
-  // Data fetching effect
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchEvents();
-      fetchTeam();
-      fetchFaculty();
-      fetchMedia();
-    }
-  }, [isAuthenticated]);
-
-  // Rest of your fetch functions and handlers remain the same
-  const fetchEvents = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      setLoading(prev => ({ ...prev, events: true }));
-      const response = await axios.get('http://localhost:5000/api/events');
-      setEvents(response.data);
+      switch (activeTab) {
+        case 'team':
+          const teamResponse = await axios.get('http://localhost:5000/api/team');
+          setTeamMembers(teamResponse.data);
+          break;
+        case 'faculty':
+          const facultyResponse = await axios.get('http://localhost:5000/api/faculty');
+          setFaculty(facultyResponse.data);
+          break;
+        case 'events':
+          const eventsResponse = await axios.get('http://localhost:5000/api/events');
+          setEvents(eventsResponse.data);
+          break;
+        case 'contact':
+          const contactsResponse = await axios.get('http://localhost:5000/api/contacts');
+          setContacts(contactsResponse.data);
+          break;
+      }
     } catch (error) {
-      console.error('Error fetching events:', error);
+      console.error('Error fetching data:', error);
     } finally {
-      setLoading(prev => ({ ...prev, events: false }));
+      setLoading(false);
     }
   };
 
-  const fetchTeam = async () => {
-    try {
-      setLoading(prev => ({ ...prev, team: true }));
-      const response = await axios.get('http://localhost:5000/api/team');
-      setTeamMembers(response.data);
-    } catch (error) {
-      console.error('Error fetching team:', error);
-    } finally {
-      setLoading(prev => ({ ...prev, team: false }));
+  const renderContent = () => {
+    if (loading) {
+      return <div className="text-center py-8">Loading...</div>;
+    }
+
+    switch (activeTab) {
+      case 'team':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {teamMembers.map(member => (
+              <div key={member._id} className="bg-black/20 rounded-lg p-6 border border-orange-500/10">
+                <img 
+                  src={member.image || '/images/default-avatar.png'} 
+                  alt={member.name}
+                  className="w-24 h-24 rounded-full mx-auto mb-4 object-cover"
+                />
+                <h3 className="text-lg font-semibold text-center">{member.name}</h3>
+                <p className="text-orange-500 text-center mb-2">{member.position}</p>
+                <div className="text-sm text-gray-400">
+                  <p>Education: {member.education}</p>
+                  <p>Course: {member.course}</p>
+                  <p>Year: {member.year}</p>
+                  {member.linkedIn && (
+                    <a 
+                      href={member.linkedIn}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-orange-500 hover:text-orange-400"
+                    >
+                      LinkedIn Profile
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'faculty':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {faculty.map(member => (
+              <div key={member._id} className="bg-black/20 rounded-lg p-6 border border-orange-500/10">
+                <img 
+                  src={member.image || '/images/default-avatar.png'} 
+                  alt={member.name}
+                  className="w-24 h-24 rounded-full mx-auto mb-4 object-cover"
+                />
+                <h3 className="text-lg font-semibold text-center">{member.name}</h3>
+                <p className="text-orange-500 text-center mb-2">{member.position}</p>
+                <p className="text-sm text-gray-400">Education: {member.education}</p>
+                {member.linkedIn && (
+                  <a 
+                    href={member.linkedIn}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-500 hover:text-orange-400"
+                  >
+                    LinkedIn Profile
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'events':
+        return (
+          <div>
+            <div className="flex justify-end mb-6">
+              <button
+                onClick={() => setModalState({ isOpen: true, type: 'add' })}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
+              >
+                <span>Add Event</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {events.map(event => (
+                <div key={event._id} className="bg-black/20 rounded-lg overflow-hidden border border-orange-500/10">
+                  <div className="aspect-video relative">
+                    <img 
+                      src={event.mainImage || '/images/default-event.jpg'} 
+                      alt={event.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      <h3 className="text-lg font-semibold">{event.title}</h3>
+                      <p className="text-orange-500">{event.category}</p>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm text-gray-400 mb-2">{event.description}</p>
+                    <div className="text-sm text-gray-400">
+                      <p>Date: {new Date(event.date).toLocaleDateString()}</p>
+                      <p>Time: {event.time}</p>
+                      <p>Venue: {event.venue}</p>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className={`inline-block px-2 py-1 rounded text-xs ${
+                        event.isUpcoming ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'
+                      }`}>
+                        {event.isUpcoming ? 'Upcoming' : 'Past'}
+                      </span>
+                      
+                      <div className="flex gap-2">
+                        {event.isUpcoming && event.registrationLink && (
+                          <a
+                            href={event.registrationLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded hover:bg-orange-500/30 transition-colors text-sm flex items-center gap-1"
+                          >
+                            Register
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        )}
+                        <button
+                          onClick={() => setModalState({ isOpen: true, type: 'edit', data: event })}
+                          className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded hover:bg-orange-500/30 transition-colors text-sm"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {modalState.isOpen && (
+              <EventModal
+                isOpen={modalState.isOpen}
+                onClose={() => setModalState({ isOpen: false, type: 'add' })}
+                event={modalState.data}
+                onEventCreated={() => {
+                  fetchData();
+                  setModalState({ isOpen: false, type: 'add' });
+                }}
+                onEventUpdated={() => {
+                  fetchData();
+                  setModalState({ isOpen: false, type: 'add' });
+                }}
+              />
+            )}
+          </div>
+        );
+
+      case 'contact':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {contacts.map(contact => (
+              <div key={contact._id} className="bg-black/20 rounded-lg p-6 border border-orange-500/10">
+                <div className="mb-4 pb-4 border-b border-orange-500/10">
+                  <h3 className="text-lg font-semibold text-orange-500">{contact.name}</h3>
+                  <p className="text-sm text-gray-400">{contact.email}</p>
+                  <p className="text-sm text-gray-400">{contact.phone}</p>
+                </div>
+                <div className="mb-4">
+                  <h4 className="font-medium mb-2">Subject</h4>
+                  <p className="text-sm text-gray-400">{contact.subject}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Message</h4>
+                  <p className="text-sm text-gray-400">{contact.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
 
-  const fetchFaculty = async () => {
-    try {
-      setLoading(prev => ({ ...prev, faculty: true }));
-      const response = await axios.get('http://localhost:5000/api/faculty');
-      setFacultyMembers(response.data);
-    } catch (error) {
-      console.error('Error fetching faculty:', error);
-    } finally {
-      setLoading(prev => ({ ...prev, faculty: false }));
-    }
-  };
-
-  const fetchMedia = async () => {
-    try {
-      setLoading(prev => ({ ...prev, media: true }));
-      const response = await axios.get('http://localhost:5000/api/images');
-      setMediaItems(response.data);
-    } catch (error) {
-      console.error('Error fetching media:', error);
-    } finally {
-      setLoading(prev => ({ ...prev, media: false }));
-    }
-  };
-
-  const toggleSection = (section: Section) => {
-    setOpenSections(prev => 
-      prev.includes(section) 
-        ? prev.filter(s => s !== section)
-        : [...prev, section]
-    );
-  };
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  // Rest of your JSX remains the same
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black p-8">
-      <div className="space-y-6 max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
-        
-        {/* Events Section */}
-        <div className="bg-black/30 rounded-lg overflow-hidden border border-orange-500/20">
-          <div
-            onClick={() => toggleSection('events')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <h2 className="text-xl font-semibold">Events</h2>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedEvent(null);
-                setIsEventModalOpen(true);
-              }}
-              className="px-4 py-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              Add Event
-            </button>
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-900 to-black text-white">
+      <Header />
+      
+      <main className="flex-grow mt-24">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Title Section */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 text-transparent bg-clip-text">
+              Admin Dashboard
+            </h1>
           </div>
-          
-          <AnimatePresence>
-            {openSections.includes('events') && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="p-6 border-t border-orange-500/20 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {events.map(event => (
-                    <div key={event._id} className="bg-white/5 rounded-lg p-4">
-                      <div className="aspect-video relative mb-4">
-                        <img 
-                          src={event.image || '/images/default-event.jpg'} 
-                          alt={event.title}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">{event.title}</h3>
-                      <p className="text-sm text-gray-400 mb-4">{event.description}</p>
-                      <div className="flex justify-between items-center">
-                        <div className="text-sm text-gray-400">
-                          <p>{new Date(event.date).toLocaleDateString()}</p>
-                          <p>{event.venue}</p>
-                        </div>
-                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          event.isUpcoming 
-                            ? 'bg-green-500/20 text-green-400' 
-                            : 'bg-orange-500/20 text-orange-400'
-                        }`}>
-                          {event.isUpcoming ? 'Upcoming' : 'Past'}
-                        </span>
-                      </div>
-                    </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            {/* Tabs Section */}
+            <div className="lg:col-span-1">
+              <div className="bg-black/30 rounded-xl border border-orange-500/20 p-6 sticky top-32">
+                <h2 className="text-xl font-semibold text-orange-500 mb-4">Navigation</h2>
+                <div className="space-y-2">
+                  {tabs.map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as ActiveTab)}
+                      className={`w-full px-4 py-3 rounded-lg flex items-center gap-3 transition-all
+                        ${activeTab === tab.id 
+                          ? 'bg-orange-500/20 text-orange-500 border border-orange-500/20' 
+                          : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'}`}
+                    >
+                      <span className="text-xl">{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </button>
                   ))}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+              </div>
+            </div>
 
-        {/* Team Section */}
-        <div className="bg-black/30 rounded-lg overflow-hidden border border-orange-500/20">
-          <div
-            onClick={() => toggleSection('team')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <h2 className="text-xl font-semibold">Team Members</h2>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedMember(null);
-                setIsTeamModalOpen(true);
-              }}
-              className="px-4 py-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              Add Member
-            </button>
-          </div>
-          
-          <AnimatePresence>
-            {openSections.includes('team') && (
+            {/* Content Section */}
+            <div className="lg:col-span-3">
               <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
+                key={activeTab}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.2 }}
+                className="bg-black/30 rounded-xl border border-orange-500/20 p-6"
               >
-                <div className="p-6 border-t border-orange-500/20 grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {teamMembers.map(member => (
-                    <div key={member._id} className="bg-white/5 rounded-lg p-4">
-                      <div className="aspect-square relative mb-4">
-                        <img 
-                          src={member.image || '/images/default-profile.jpg'} 
-                          alt={member.name}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">{member.name}</h3>
-                      <p className="text-orange-500 mb-1">{member.position}</p>
-                      <p className="text-sm text-gray-400 mb-4">{member.education}</p>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedMember(member);
-                            setIsTeamModalOpen(true);
-                          }}
-                          className="px-3 py-1 bg-orange-500/20 rounded hover:bg-orange-500/30 transition-colors"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <h2 className="text-xl font-semibold text-orange-500 mb-6">
+                  {tabs.find(tab => tab.id === activeTab)?.label}
+                </h2>
+                {renderContent()}
               </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Faculty Section */}
-        <div className="bg-black/30 rounded-lg overflow-hidden border border-orange-500/20">
-          <div
-            onClick={() => toggleSection('faculty')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <h2 className="text-xl font-semibold">Faculty Members</h2>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedFaculty(null);
-                setIsFacultyModalOpen(true);
-              }}
-              className="px-4 py-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              Add Faculty
-            </button>
+            </div>
           </div>
-          
-          <AnimatePresence>
-            {openSections.includes('faculty') && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="p-6 border-t border-orange-500/20 grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {facultyMembers.map(faculty => (
-                    <div key={faculty._id} className="bg-white/5 rounded-lg p-4">
-                      <div className="aspect-square relative mb-4">
-                        <img 
-                          src={faculty.image || '/images/default-profile.jpg'} 
-                          alt={faculty.name}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">{faculty.name}</h3>
-                      <p className="text-orange-500 mb-1">{faculty.position}</p>
-                      <p className="text-sm text-gray-400 mb-4">{faculty.education}</p>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedFaculty(faculty);
-                            setIsFacultyModalOpen(true);
-                          }}
-                          className="px-3 py-1 bg-orange-500/20 rounded hover:bg-orange-500/30 transition-colors"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
+      </main>
 
-        {/* Media Section */}
-        <div className="bg-black/30 rounded-lg overflow-hidden border border-orange-500/20">
-          <div
-            onClick={() => toggleSection('media')}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <h2 className="text-xl font-semibold">Media Gallery</h2>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsUploadModalOpen(true);
-              }}
-              className="px-4 py-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              Upload Media
-            </button>
-          </div>
-          
-          <AnimatePresence>
-            {openSections.includes('media') && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="p-6 border-t border-orange-500/20 grid grid-cols-2 md:grid-cols-4 gap-6">
-                  {mediaItems.map((item, index) => (
-                    <div key={index} className="aspect-square relative group">
-                      <img 
-                        src={item}
-                        alt="Gallery Image"
-                        className="w-full h-full object-cover rounded-lg transition-transform duration-300 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                        <button
-                          onClick={() => navigator.clipboard.writeText(item)}
-                          className="px-3 py-1 bg-white/20 rounded hover:bg-white/30 transition-colors"
-                        >
-                          Copy URL
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Modals */}
-        <EventModal
-          isOpen={isEventModalOpen}
-          onClose={() => setIsEventModalOpen(false)}
-          onEventCreated={fetchEvents}
-        />
-
-        <TeamModal
-          isOpen={isTeamModalOpen}
-          onClose={() => setIsTeamModalOpen(false)}
-          member={selectedMember}
-          onMemberCreated={fetchTeam}
-          onMemberUpdated={fetchTeam}
-        />
-
-        <FacultyModal
-          isOpen={isFacultyModalOpen}
-          onClose={() => setIsFacultyModalOpen(false)}
-          faculty={selectedFaculty}
-          onFacultyCreated={fetchFaculty}
-          onFacultyUpdated={fetchFaculty}
-        />
-      </div>
+      <Footer />
     </div>
   );
 } 
