@@ -6,6 +6,7 @@ const cors = require('cors');
 const fs = require('fs');
 const app = express();
 const DEFAULT_PROFILE_IMAGE = '/public/images/defaul.png'; // Adjust the path as needed
+const cron = require('node-cron');
 // CORS Configuration
 app.use(cors({
     origin: [
@@ -297,13 +298,15 @@ app.post('/api/events', async (req, res) => {
     try {
         console.log('Received event data:', req.body);
         
-        // Generate a unique event ID
         const eventId = `EV${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+        const eventDate = new Date(req.body.date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
         const event = new Event({
             ...req.body,
             id: eventId,
-            isUpcoming: new Date(req.body.date) > new Date()
+            isUpcoming: eventDate > today // Automatically set based on date
         });
 
         await event.save();
@@ -320,9 +323,63 @@ app.post('/api/events', async (req, res) => {
 // Get All Events
 app.get('/api/events', async (req, res) => {
     try {
-        const events = await Event.find().sort({ date: -1 });
-        res.json(events);
+        const now = new Date();
+        const events = await Event.find();
+        
+        // Process each event to determine isUpcoming status
+        const processedEvents = events.map(event => {
+            const eventDate = new Date(event.date);
+            const eventDateTime = new Date(`${event.date}T${event.time || '00:00'}`);
+            const oneHourBefore = new Date(eventDateTime.getTime() - (60 * 60 * 1000));
+
+            // Convert to event object that we can modify
+            const processedEvent = event.toObject();
+
+            // Check conditions:
+            // 1. If event date is in the past
+            // 2. If event is today but less than 1 hour until start time
+            if (eventDate < now || (
+                eventDate.toDateString() === now.toDateString() && 
+                now >= oneHourBefore
+            )) {
+                processedEvent.isUpcoming = false;
+            }
+
+            return processedEvent;
+        });
+
+        // Sort events:
+        // 1. Upcoming events first, sorted by nearest date
+        // 2. Past events next, sorted by most recent
+        const sortedEvents = processedEvents.sort((a, b) => {
+            // If one is upcoming and other isn't, upcoming comes first
+            if (a.isUpcoming && !b.isUpcoming) return -1;
+            if (!a.isUpcoming && b.isUpcoming) return 1;
+
+            // If both are upcoming, sort by nearest date
+            if (a.isUpcoming && b.isUpcoming) {
+                return new Date(a.date).getTime() - new Date(b.date).getTime();
+            }
+
+            // If both are past events, sort by most recent
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+
+        // Update the database with new isUpcoming values
+        const bulkOps = processedEvents.map(event => ({
+            updateOne: {
+                filter: { _id: event._id },
+                update: { $set: { isUpcoming: event.isUpcoming } }
+            }
+        }));
+
+        if (bulkOps.length > 0) {
+            await Event.bulkWrite(bulkOps);
+        }
+
+        res.json(sortedEvents);
     } catch (error) {
+        console.error('Error fetching events:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -347,6 +404,43 @@ app.patch('/api/events/:id', upload.array('images', 6), async (req, res) => {
         res.json(event);
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Add a manual update endpoint (optional, for testing)
+app.post('/api/events/update-status', async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const result = await Event.updateMany(
+            {},
+            [
+                {
+                    $set: {
+                        isUpcoming: {
+                            $cond: {
+                                if: { $gt: [{ $dateFromString: { dateString: '$date' } }, today] },
+                                then: true,
+                                else: false
+                            }
+                        }
+                    }
+                }
+            ]
+        );
+
+        res.json({
+            success: true,
+            message: `Updated ${result.modifiedCount} events`,
+            result
+        });
+    } catch (error) {
+        console.error('Error updating event status:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
     }
 });
 
@@ -452,6 +546,37 @@ app.get('/api/images', async (req, res) => {
         res.json(images);
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Cron job to update event status - runs every day at midnight
+cron.schedule('0 0 * * *', async () => {
+    try {
+        console.log('Running daily event status update...');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Update all events
+        const result = await Event.updateMany(
+            {}, // Update all events
+            [
+                {
+                    $set: {
+                        isUpcoming: {
+                            $cond: {
+                                if: { $gt: [{ $dateFromString: { dateString: '$date' } }, today] },
+                                then: true,
+                                else: false
+                            }
+                        }
+                    }
+                }
+            ]
+        );
+
+        console.log(`Updated ${result.modifiedCount} events`);
+    } catch (error) {
+        console.error('Error updating event status:', error);
     }
 });
 
