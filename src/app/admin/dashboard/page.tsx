@@ -6,6 +6,8 @@ import LayoutWrapper from '@/components/LayoutWrapper';
 import axios from 'axios';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 
 type Tab = 'team' | 'faculty' | 'events' | 'contact';
 
@@ -46,6 +48,7 @@ const datePickerStyles = `
 `;
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('adminActiveTab') as Tab) || 'team';
@@ -150,6 +153,13 @@ export default function AdminDashboard() {
 
   const handleAddFaculty = () => {
     // Handle faculty addition
+  };
+
+  const handleLogout = () => {
+    // Clear both cookie and session storage
+    Cookies.remove('isAdminLoggedIn');
+    sessionStorage.removeItem('isAdminLoggedIn');
+    router.push('/admin/login');
   };
 
   return (
@@ -404,6 +414,12 @@ export default function AdminDashboard() {
                   className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
                 >
                   Create Event
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  Logout
                 </button>
               </div>
             </div>

@@ -1,1 +1,10 @@
- 
+# Place this file in your public directory
+AuthType Basic
+AuthName "Admin Area"
+AuthUserFile /path/to/.htpasswd
+Require valid-user
+
+# Protect only the admin area
+<LocationMatch "^/admin/">
+  Require valid-user
+</LocationMatch> 

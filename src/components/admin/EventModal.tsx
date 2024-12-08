@@ -7,6 +7,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { IEvent } from '@/types/event';
 import Image from 'next/image';
 import Notification from '@/components/Notification';
+import Alert from '@/components/ui/Alert';
 
 const DatePicker = dynamic(() => import('react-datepicker'), { ssr: false }) as any;
 
@@ -111,6 +112,7 @@ export default function EventModal({
     message: string;
     type: 'success' | 'error';
   } | null>(null);
+  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     const styleElement = document.createElement('style');
@@ -126,8 +128,15 @@ export default function EventModal({
   useEffect(() => {
     if (event) {
       setFormData({
-        ...event,
-        date: new Date(event.date).toISOString().split('T')[0]
+        title: event.title || '',
+        description: event.description || '',
+        date: event.date || new Date().toISOString().split('T')[0],
+        time: event.time || '09:00',
+        venue: event.venue || '',
+        category: event.category || 'workshop',
+        image: event.image || '',
+        registrationLink: event.registrationLink || '',
+        isUpcoming: event.isUpcoming
       });
     }
   }, [event]);
@@ -152,33 +161,63 @@ export default function EventModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formRef.current) return;
 
     try {
       setError(null);
       setIsSaving(true);
-      
-      // Validate required fields
-      if (!formData.title || !formData.date || !formData.venue) {
-        setError('Please fill in all required fields');
+
+      if (!formData.title || !formData.date || !formData.venue || !formData.image) {
+        setError('Please fill in all required fields and upload an image');
         return;
       }
+
+      const url = event 
+        ? `http://localhost:5000/api/events/${event._id}`
+        : 'http://localhost:5000/api/events';
       
-      const response = await axios.post('http://localhost:5000/api/events', {
-        ...formData,
-        isUpcoming: isDateUpcoming(formData.date),
-        imageStack: formData.imageStack || []
+      const response = await axios({
+        method: event ? 'patch' : 'post',
+        url,
+        data: {
+          ...formData,
+          isUpcoming: isDateUpcoming(formData.date)
+        }
       });
-      
+
       if (response.data?.success) {
+        setAlert({
+          type: 'success',
+          message: `Event ${event ? 'updated' : 'created'} successfully!`
+        });
+
+        // Call the callback immediately
         onEventCreated?.();
-        onClose();
-      } else {
-        throw new Error(response.data?.error || 'Failed to create event');
+
+        // Close modal and reset form after a delay
+        setTimeout(() => {
+          onClose();
+          setAlert(null);
+          if (!event) {
+            setFormData({
+              title: '',
+              description: '',
+              date: new Date().toISOString().split('T')[0],
+              time: '09:00',
+              venue: '',
+              category: 'workshop',
+              isUpcoming: true,
+              image: '',
+              registrationLink: ''
+            });
+          }
+        }, 1500);
       }
     } catch (error: any) {
-      console.error('Error saving event:', error);
-      setError(error.response?.data?.error || error.message || 'Failed to create event');
+      console.error(`Error ${event ? 'updating' : 'creating'} event:`, error);
+      setAlert({
+        type: 'error',
+        message: error.response?.data?.error || `Failed to ${event ? 'update' : 'create'} event`
+      });
     } finally {
       setIsSaving(false);
     }
@@ -234,216 +273,228 @@ export default function EventModal({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        >
+    <>
+      <AnimatePresence>
+        {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="bg-black/90 rounded-xl p-8 w-full max-w-4xl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           >
-            <h2 className="text-2xl font-bold mb-6">
-              {event ? 'Edit Event' : 'Create New Event'}
-            </h2>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="bg-black/90 rounded-xl p-8 w-full max-w-4xl"
+            >
+              <h2 className="text-2xl font-bold mb-6">
+                {event ? 'Edit Event' : 'Create New Event'}
+              </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
-                  <p className="text-red-400">{error}</p>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-6">
-                {/* Left Column */}
-                <div className="space-y-6">
-                  {/* Title */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Event Title</label>
-                    <input
-                      type="text"
-                      value={formData.title}
-                      onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                      className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
-                      required
-                    />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                    <p className="text-red-400">{error}</p>
                   </div>
-
-                  {/* Description */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Description</label>
-                    <textarea
-                      value={formData.description}
-                      onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5 h-32"
-                      required
-                    />
-                  </div>
-
-                  {/* Date & Time */}
-                  <div className="grid grid-cols-2 gap-4">
+                )}
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Left Column */}
+                  <div className="space-y-6">
+                    {/* Title */}
                     <div>
-                      <label className="block text-sm font-medium mb-2">Date</label>
-                      <div className="relative">
-                        <DatePicker
-                          selected={formData.date ? new Date(formData.date) : null}
-                          onChange={handleDateChange}
-                          className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
-                          dateFormat="MMMM d, yyyy"
-                          minDate={new Date()}
-                          excludeDates={[new Date()]}
-                          placeholderText="Select future date"
-                          required
-                          calendarClassName="bg-black/90 border-orange-500/20"
-                          showPopperArrow={false}
-                          popperPlacement="bottom"
-                          popperModifiers={[
-                            {
-                              name: 'preventOverflow',
-                              options: {
-                                boundary: 'viewport',
-                                padding: 8
-                              }
-                            }
-                          ]}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Time</label>
+                      <label className="block text-sm font-medium mb-2">Event Title</label>
                       <input
-                        type="time"
-                        value={formData.time}
-                        onChange={e => setFormData(prev => ({ ...prev, time: e.target.value }))}
+                        type="text"
+                        value={formData.title}
+                        onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
                         className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
                         required
                       />
                     </div>
-                  </div>
-                </div>
 
-                {/* Right Column */}
-                <div className="space-y-6">
-                  {/* Venue */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Venue</label>
-                    <input
-                      type="text"
-                      value={formData.venue}
-                      onChange={e => setFormData(prev => ({ ...prev, venue: e.target.value }))}
-                      className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
-                      required
-                    />
-                  </div>
-
-                  {/* Category */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Category</label>
-                    <select
-                      value={formData.category}
-                      onChange={e => setFormData(prev => ({ ...prev, category: e.target.value as IEvent['category'] }))}
-                      className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
-                      required
-                    >
-                      <option value="workshop">Workshop</option>
-                      <option value="seminar">Seminar</option>
-                      <option value="conference">Conference</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  {/* Registration Link */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Registration Link</label>
-                    <input
-                      type="url"
-                      value={formData.registrationLink}
-                      onChange={e => setFormData(prev => ({ ...prev, registrationLink: e.target.value }))}
-                      className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
-                      placeholder="https://..."
-                    />
-                  </div>
-
-                  {/* Event Image */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Event Image</label>
-                    <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full aspect-video rounded-lg border-2 border-dashed border-orange-500/20 
-                        bg-[#0D0D0D] hover:border-orange-500/40 cursor-pointer
-                        flex flex-col items-center justify-center"
-                    >
-                      {formData.image ? (
-                        <img 
-                          src={formData.image} 
-                          alt="Preview" 
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <>
-                          <div className="p-4 rounded-full bg-[#1A1A1A]">
-                            <svg 
-                              className="w-8 h-8 text-orange-500" 
-                              fill="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M4 5h13v7h2V5c0-1.103-.897-2-2-2H4c-1.103 0-2 .897-2 2v12c0 1.103.897 2 2 2h8v-2H4V5z"/>
-                              <path d="M8 11l-3 4h11l-4-6-3 4z"/>
-                              <path d="M19 14h-2v3h-3v2h3v3h2v-3h3v-2h-3z"/>
-                            </svg>
-                          </div>
-                          <p className="text-orange-500 mt-4">Click to upload event image</p>
-                          <p className="text-sm text-gray-500 mt-1">Drop your image here or click to browse</p>
-                          <p className="text-xs text-gray-600 mt-1">PNG, JPG up to 10MB</p>
-                        </>
-                      )}
+                    {/* Description */}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Description</label>
+                      <textarea
+                        value={formData.description}
+                        onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                        className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5 h-32"
+                        required
+                      />
                     </div>
 
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-
-                    {uploading && (
-                      <div className="mt-2 flex items-center justify-center gap-2 text-orange-500">
-                        <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        <span className="text-sm">Uploading...</span>
+                    {/* Date & Time */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Date</label>
+                        <div className="relative">
+                          <DatePicker
+                            selected={formData.date ? new Date(formData.date) : null}
+                            onChange={handleDateChange}
+                            className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
+                            dateFormat="MMMM d, yyyy"
+                            minDate={new Date()}
+                            excludeDates={[new Date()]}
+                            placeholderText="Select future date"
+                            required
+                            calendarClassName="bg-black/90 border-orange-500/20"
+                            showPopperArrow={false}
+                            popperPlacement="bottom"
+                            popperModifiers={[
+                              {
+                                name: 'preventOverflow',
+                                options: {
+                                  boundary: 'viewport',
+                                  padding: 8
+                                }
+                              }
+                            ]}
+                          />
+                        </div>
                       </div>
-                    )}
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Time</label>
+                        <input
+                          type="time"
+                          value={formData.time}
+                          onChange={e => setFormData(prev => ({ ...prev, time: e.target.value }))}
+                          className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column */}
+                  <div className="space-y-6">
+                    {/* Venue */}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Venue</label>
+                      <input
+                        type="text"
+                        value={formData.venue}
+                        onChange={e => setFormData(prev => ({ ...prev, venue: e.target.value }))}
+                        className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
+                        required
+                      />
+                    </div>
+
+                    {/* Category */}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Category</label>
+                      <select
+                        value={formData.category}
+                        onChange={e => setFormData(prev => ({ ...prev, category: e.target.value as IEvent['category'] }))}
+                        className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
+                        required
+                      >
+                        <option value="workshop">Workshop</option>
+                        <option value="seminar">Seminar</option>
+                        <option value="conference">Conference</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    {/* Registration Link */}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Registration Link</label>
+                      <input
+                        type="url"
+                        value={formData.registrationLink}
+                        onChange={e => setFormData(prev => ({ ...prev, registrationLink: e.target.value }))}
+                        className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
+                        placeholder="https://..."
+                      />
+                    </div>
+
+                    {/* Event Image */}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Event Image</label>
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full aspect-video rounded-lg border-2 border-dashed border-orange-500/20 
+                          bg-[#0D0D0D] hover:border-orange-500/40 cursor-pointer
+                          flex flex-col items-center justify-center"
+                      >
+                        {formData.image ? (
+                          <img 
+                            src={formData.image} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <>
+                            <div className="p-4 rounded-full bg-[#1A1A1A]">
+                              <svg 
+                                className="w-8 h-8 text-orange-500" 
+                                fill="currentColor" 
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M4 5h13v7h2V5c0-1.103-.897-2-2-2H4c-1.103 0-2 .897-2 2v12c0 1.103.897 2 2 2h8v-2H4V5z"/>
+                                <path d="M8 11l-3 4h11l-4-6-3 4z"/>
+                                <path d="M19 14h-2v3h-3v2h3v3h2v-3h3v-2h-3z"/>
+                              </svg>
+                            </div>
+                            <p className="text-orange-500 mt-4">Click to upload event image</p>
+                            <p className="text-sm text-gray-500 mt-1">Drop your image here or click to browse</p>
+                            <p className="text-xs text-gray-600 mt-1">PNG, JPG up to 10MB</p>
+                          </>
+                        )}
+                      </div>
+
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+
+                      {uploading && (
+                        <div className="mt-2 flex items-center justify-center gap-2 text-orange-500">
+                          <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <span className="text-sm">Uploading...</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-orange-500/20">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-6 py-2.5 bg-gray-800 rounded-lg hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploading || isSaving}
-                  className="px-6 py-2.5 bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50 min-w-[100px]"
-                >
-                  {isSaving ? 'Saving...' : event ? 'Update Event' : 'Create Event'}
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-orange-500/20">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-6 py-2.5 bg-gray-800 rounded-lg hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploading || isSaving}
+                    className="px-6 py-2.5 bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50 min-w-[100px]"
+                  >
+                    {isSaving ? 'Saving...' : event ? 'Update Event' : 'Create Event'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {alert && (
+          <Alert
+            type={alert.type}
+            message={alert.message}
+            onClose={() => setAlert(null)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 } 

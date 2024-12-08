@@ -1,10 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { ADMIN_CREDENTIALS } from '@/constants/auth';
+import Cookies from 'js-cookie';
 
-export default function LoginPage() {
+const ADMIN_USERNAME = 'kavya';
+const ADMIN_PASSWORD = 'kavya';
+
+export default function AdminLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -13,11 +15,11 @@ export default function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-      // Store credentials in localStorage
-      localStorage.setItem('adminUsername', username);
-      localStorage.setItem('adminPassword', password);
-      router.push('/admin');
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      // Set both cookie and session storage
+      Cookies.set('isAdminLoggedIn', 'true', { expires: 1 }); // Expires in 1 day
+      sessionStorage.setItem('isAdminLoggedIn', 'true');
+      router.push('/admin/dashboard');
     } else {
       setError('Invalid credentials');
     }
@@ -25,61 +27,48 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-black/30 p-8 rounded-lg border border-orange-500/20 w-full max-w-md backdrop-blur-sm"
-      >
-        <h1 className="text-2xl font-bold text-center mb-8 bg-gradient-to-r from-orange-500 to-orange-600 text-transparent bg-clip-text">
-          Admin Login
-        </h1>
+      <div className="w-full max-w-md">
+        <div className="bg-black/50 rounded-xl border border-orange-500/20 p-8 backdrop-blur-sm">
+          <h1 className="text-2xl font-bold text-orange-500 mb-6">Admin Login</h1>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-red-500 text-center"
+            <div>
+              <label className="block text-sm font-medium mb-2">Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-black/50 border border-orange-500/20 rounded-lg p-2.5"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-orange-500 text-white rounded-lg py-2.5 hover:bg-orange-600 transition-colors"
             >
-              {error}
-            </motion.p>
-          )}
-
-          <div>
-            <label className="block text-sm mb-2">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2 
-                focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black/50 border border-orange-500/30 rounded-lg px-4 py-2 
-                focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              required
-            />
-          </div>
-
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg
-              font-medium hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
-          >
-            Login
-          </motion.button>
-        </form>
-      </motion.div>
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 } 

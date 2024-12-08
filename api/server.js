@@ -385,25 +385,39 @@ app.get('/api/events', async (req, res) => {
 });
 
 // Update Event
-app.patch('/api/events/:id', upload.array('images', 6), async (req, res) => {
+app.patch('/api/events/:id', async (req, res) => {
     try {
+        const { id } = req.params;
         const updateData = { ...req.body };
-        if (req.files?.length > 0) {
-            const imageUrls = req.files.map(file => `/public/${file.filename}`);
-            updateData.mainImage = imageUrls[0];
-            updateData.imageStack = imageUrls.slice(1);
+        
+        // If there's a date, recalculate isUpcoming
+        if (updateData.date) {
+            const eventDate = new Date(updateData.date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            updateData.isUpcoming = eventDate > today;
         }
+
         const event = await Event.findByIdAndUpdate(
-            req.params.id,
+            id,  // Use _id directly
             updateData,
             { new: true }
         );
+
         if (!event) {
-            return res.status(404).json({ message: 'Event not found' });
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Event not found' 
+            });
         }
-        res.json(event);
+
+        res.json({ success: true, event });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error updating event:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
     }
 });
 
