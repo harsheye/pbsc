@@ -71,13 +71,14 @@ export default function FacultyModal({
       setUploading(true);
       const uploadData = new FormData();
       uploadData.append('image', file);
-      uploadData.append('category', 'faculty');
-      uploadData.append('name', formData.name || 'faculty-member');
+      uploadData.append('category', 'leader');
+      uploadData.append('name', formData.name || 'unnamed');
 
       const response = await axios.post('http://localhost:5000/api/upload', uploadData);
       
       if (response.data?.success && response.data?.imageUrl) {
-        setFormData(prev => ({ ...prev, image: response.data.imageUrl }));
+        const clientImageUrl = response.data.imageUrl.replace('/public', '');
+        setFormData(prev => ({ ...prev, image: clientImageUrl }));
         setNotification({
           type: 'success',
           message: 'Image uploaded successfully!'
@@ -93,6 +94,56 @@ export default function FacultyModal({
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formRef.current) return;
+
+    try {
+      setError(null);
+      setIsSaving(true);
+
+      if (!formData.name || !formData.position || !formData.education) {
+        setError('Please fill in all required fields');
+        return;
+      }
+
+      const endpoint = member 
+        ? `http://localhost:5000/api/faculty/${member._id}`
+        : 'http://localhost:5000/api/faculty';
+      
+      const method = member ? 'PATCH' : 'POST';
+      
+      const response = await axios({
+        method,
+        url: endpoint,
+        data: formData,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data) {
+        onFacultyMemberCreated?.();
+        onClose();
+        setNotification({
+          type: 'success',
+          message: `Faculty member ${member ? 'updated' : 'created'} successfully!`
+        });
+      } else {
+        throw new Error(response.data?.error || `Failed to ${member ? 'update' : 'create'} faculty member`);
+      }
+    } catch (error: any) {
+      console.error('Error saving faculty member:', error);
+      setError(error.response?.data?.error || error.message || `Failed to ${member ? 'update' : 'create'} faculty member`);
+      setNotification({
+        type: 'error',
+        message: `Failed to ${member ? 'update' : 'create'} faculty member`
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -119,7 +170,7 @@ export default function FacultyModal({
                 {member ? 'Edit Faculty Member' : 'Add New Faculty Member'}
               </h2>
 
-              <form ref={formRef} className="space-y-6">
+              <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
                 {/* Form Fields */}
                 <div className="grid grid-cols-2 gap-6">
                   {/* Left Column */}

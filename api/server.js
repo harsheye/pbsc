@@ -104,6 +104,11 @@ const teamMemberSchema = new mongoose.Schema({
 
 // Event Schema
 const eventSchema = new mongoose.Schema({
+    id: {
+        type: String,
+        required: true,
+        unique: true
+    },
     title: {
         type: String,
         required: true
@@ -127,18 +132,11 @@ const eventSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
-    image: {
-        type: String,
-        default: '/images/default.png'
-    },
+    image: String,
+    registrationLink: String,
     createdAt: {
         type: Date,
         default: Date.now
-    },
-    registrationLink: String,
-    imageStack: {
-        type: [String],
-        default: []
     }
 });
 
@@ -175,14 +173,34 @@ const Image = mongoose.model('Image', imageSchema);
 
 // ============= FACULTY ROUTES =============
 // Create Faculty
-app.post('/api/faculty', upload.single('image'), async (req, res) => {
+app.post('/api/faculty', async (req, res) => {
     try {
-        const imageUrl = `/public/${req.file.filename}`;
         const faculty = new Faculty({
-            ...req.body,
-            image: imageUrl
+            id: `FM${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+            name: req.body.name,
+            position: req.body.position,
+            education: req.body.education,
+            linkedIn: req.body.linkedIn,
+            image: req.body.image // This will now be /uploads/leader/name-timestamp.ext
         });
         await faculty.save();
+        res.json(faculty);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update Faculty
+app.patch('/api/faculty/:id', async (req, res) => {
+    try {
+        const faculty = await Faculty.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true }
+        );
+        if (!faculty) {
+            return res.status(404).json({ message: 'Faculty member not found' });
+        }
         res.json(faculty);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -278,43 +296,23 @@ app.get('/api/team/:position', async (req, res) => {
 app.post('/api/events', async (req, res) => {
     try {
         console.log('Received event data:', req.body);
-
-        // Validate required fields
-        const requiredFields = ['title', 'date', 'venue'];
-        for (const field of requiredFields) {
-            if (!req.body[field]) {
-                return res.status(400).json({
-                    success: false,
-                    error: `${field} is required`
-                });
-            }
-        }
-
-        const eventData = {
-            title: req.body.title,
-            description: req.body.description,
-            date: req.body.date,
-            time: req.body.time || '12:00 PM',
-            venue: req.body.venue,
-            category: req.body.category,
-            isUpcoming: req.body.isUpcoming,
-            image: req.body.mainImage || '/images/default.png', // Use mainImage or default
-            registrationLink: req.body.registrationLink,
-            imageStack: req.body.imageStack || []
-        };
-
-        const event = new Event(eventData);
-        await event.save();
-
-        res.json({
-            success: true,
-            data: event
+        
+        // Generate a unique event ID
+        const eventId = `EV${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+        
+        const event = new Event({
+            ...req.body,
+            id: eventId,
+            isUpcoming: new Date(req.body.date) > new Date()
         });
+
+        await event.save();
+        res.json({ success: true, event });
     } catch (error) {
         console.error('Error creating event:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
         });
     }
 });
@@ -388,21 +386,36 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
 
         const category = req.body.category || 'default';
         const name = req.body.name || 'unnamed';
+        const extension = path.extname(req.file.originalname);
         let uploadPath;
+        let dbPath; // Path to store in database
 
-        // Determine the upload path based on category
+        // Clean the name (remove special characters and spaces)
+        const cleanName = name.toLowerCase()
+            .replace(/[^a-z0-9]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+
+        const timestamp = Date.now();
+        const filename = `${cleanName}-${timestamp}${extension}`;
+
+        // Determine paths based on category
         switch(category) {
-            case 'team':
-                uploadPath = `/public/uploads/team/${name}-${req.file.filename}`;
-                break;
             case 'leader':
-                uploadPath = `/public/uploads/leader/${name}-${req.file.filename}`;
+                uploadPath = `/public/uploads/leader/${filename}`;
+                dbPath = `/uploads/leader/${filename}`;
+                break;
+            case 'team':
+                uploadPath = `/public/uploads/team/${filename}`;
+                dbPath = `/uploads/team/${filename}`;
                 break;
             case 'events':
-                uploadPath = `/public/uploads/events/${name}-${req.file.filename}`;
+                uploadPath = `/public/uploads/events/${filename}`;
+                dbPath = `/uploads/events/${filename}`;
                 break;
             default:
-                uploadPath = `/public/uploads/default/${req.file.filename}`;
+                uploadPath = `/public/uploads/default/${filename}`;
+                dbPath = `/uploads/default/${filename}`;
         }
 
         // Create directories if they don't exist
@@ -417,7 +430,7 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
 
         res.json({ 
             success: true, 
-            imageUrl: uploadPath,
+            imageUrl: dbPath, // Send the database path
             message: 'Image uploaded successfully' 
         });
     } catch (error) {

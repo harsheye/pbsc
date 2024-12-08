@@ -9,6 +9,7 @@ module.exports = {
     extend: {
       animation: {
         meteor: "meteor 5s linear infinite",
+        'gradient-x': 'gradient-x 3s ease infinite',
       },
       keyframes: {
         meteor: {
@@ -17,6 +18,16 @@ module.exports = {
           "100%": {
             transform: "rotate(215deg) translateX(-500px)",
             opacity: "0",
+          },
+        },
+        'gradient-x': {
+          '0%, 100%': {
+            'background-size': '200% 200%',
+            'background-position': 'left center',
+          },
+          '50%': {
+            'background-size': '200% 200%',
+            'background-position': 'right center',
           },
         },
       },
