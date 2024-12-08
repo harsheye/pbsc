@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import axios from 'axios';
+import EventModal from '@/components/admin/EventModal';
 
 type ActiveTab = 'team' | 'faculty' | 'events' | 'contact';
 
@@ -48,6 +49,7 @@ interface Contact {
   phone: string;
   subject: string;
   description: string;
+  createdAt: string;
 }
 
 interface ModalState {
@@ -58,12 +60,24 @@ interface ModalState {
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('team');
+
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [faculty, setFaculty] = useState<Faculty[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalState, setModalState] = useState<ModalState>({ isOpen: false, type: 'add' });
+
+  useEffect(() => {
+    const savedTab = localStorage.getItem('adminActiveTab');
+    if (savedTab) {
+      setActiveTab(savedTab as ActiveTab);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('adminActiveTab', activeTab);
+  }, [activeTab]);
 
   const tabs = [
     { id: 'team', label: 'Team Members', icon: '👥' },
@@ -264,17 +278,32 @@ export default function AdminPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {contacts.map(contact => (
               <div key={contact._id} className="bg-black/20 rounded-lg p-6 border border-orange-500/10">
+                <div className="mb-4 pb-2 border-b border-orange-500/10 flex justify-between items-center">
+                  <span className="text-xs text-gray-500">UID: {contact.uid}</span>
+                  <span className="text-xs text-gray-500">
+                    {new Date(contact.createdAt).toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+
                 <div className="mb-4 pb-4 border-b border-orange-500/10">
                   <h3 className="text-lg font-semibold text-orange-500">{contact.name}</h3>
                   <p className="text-sm text-gray-400">{contact.email}</p>
                   <p className="text-sm text-gray-400">{contact.phone}</p>
                 </div>
+
                 <div className="mb-4">
-                  <h4 className="font-medium mb-2">Subject</h4>
+                  <h4 className="font-medium mb-2 text-orange-400/80">Subject</h4>
                   <p className="text-sm text-gray-400">{contact.subject}</p>
                 </div>
+
                 <div>
-                  <h4 className="font-medium mb-2">Message</h4>
+                  <h4 className="font-medium mb-2 text-orange-400/80">Message</h4>
                   <p className="text-sm text-gray-400">{contact.description}</p>
                 </div>
               </div>

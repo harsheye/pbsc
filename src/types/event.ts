@@ -1,15 +1,16 @@
 import { ObjectId } from 'mongodb';
 
 export interface IEvent {
-  _id?: string | ObjectId;
+  _id?: string;
   title: string;
   description: string;
   date: string;
   time: string;
   venue: string;
-  category: 'technical' | 'workshop' | 'seminar' | 'other';
+  category: 'workshop' | 'seminar' | 'conference' | 'other';
   isUpcoming: boolean;
-  image?: string;
+  image: string;
   registrationLink?: string;
+  imageStack: string[];
   createdAt?: Date;
 } 

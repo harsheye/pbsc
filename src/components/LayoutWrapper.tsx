@@ -1,19 +1,24 @@
 'use client';
 import { usePathname } from 'next/navigation';
+import Header from './Header';
+import Footer from './Footer';
 
-export default function LayoutWrapper({
-  children
-}: {
+interface LayoutWrapperProps {
   children: React.ReactNode;
-}) {
+  includeHeader?: boolean;
+}
+
+export default function LayoutWrapper({ children, includeHeader = true }: LayoutWrapperProps) {
   const pathname = usePathname();
+  const isHomePage = pathname === '/';
 
   return (
-    <main className={`
-      ${pathname === '/' ? '' : 'pt-24'}
-      flex-grow bg-gray-900
-    `}>
-      {children}
-    </main>
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
+      {!isHomePage && includeHeader && <Header />}
+      <main className={`${!isHomePage ? 'pt-24' : ''} flex-grow`}>
+        {children}
+      </main>
+      <Footer />
+    </div>
   );
 } 

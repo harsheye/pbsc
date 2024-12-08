@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb';
 
-export interface IFaculty {
+export interface IFacultyMember {
   _id?: string | ObjectId;
   name: string;
   position: string;

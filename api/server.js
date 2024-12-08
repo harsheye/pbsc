@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
 const cors = require('cors');
+const fs = require('fs');
 const app = express();
 const DEFAULT_PROFILE_IMAGE = '/public/images/defaul.png'; // Adjust the path as needed
 // CORS Configuration
@@ -31,15 +32,21 @@ mongoose.connect('mongodb://localhost:44275/pbsc', {
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.log('MongoDB Connection Error:', err));
 
-// Multer Configuration
+// Multer Configuration with dynamic destination
 const storage = multer.diskStorage({
     destination: function(req, file, cb) {
-        cb(null, 'D:/Github Stuffs/ieee/pbsc/public/');
+        const tempDir = path.join(__dirname, '../public/uploads/temp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+        cb(null, tempDir);
     },
     filename: function(req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
     }
 });
+
 const upload = multer({ storage: storage });
 
 // ============= MODELS =============
@@ -71,25 +78,46 @@ const teamMemberSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
-    name: String,
-    position: String,
-    education: String,
-    year: Number,
-    course: String,
-    image: {
+    name: {
         type: String,
-        default: DEFAULT_PROFILE_IMAGE
+        required: true
     },
+    position: {
+        type: String,
+        required: true
+    },
+    education: {
+        type: String,
+        required: true
+    },
+    year: {
+        type: Number,
+        required: true
+    },
+    course: {
+        type: String,
+        required: true
+    },
+    image: String,
     linkedIn: String
 });
 
 // Event Schema
 const eventSchema = new mongoose.Schema({
-    title: String,
+    title: {
+        type: String,
+        required: true
+    },
     description: String,
-    date: Date,
-    venue: String,
-    timing: String,
+    date: {
+        type: String,
+        required: true
+    },
+    time: String,
+    venue: {
+        type: String,
+        required: true
+    },
     category: {
         type: String,
         enum: ['workshop', 'seminar', 'conference', 'other'],
@@ -99,8 +127,19 @@ const eventSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
-    mainImage: String,
-    imageStack: [String]
+    image: {
+        type: String,
+        default: '/images/default.png'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    registrationLink: String,
+    imageStack: {
+        type: [String],
+        default: []
+    }
 });
 
 // Contact Schema
@@ -110,7 +149,11 @@ const contactSchema = new mongoose.Schema({
     email: String,
     phone: String,
     subject: String,
-    description: String
+    description: String,
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
 });
 
 // Image Schema
@@ -119,7 +162,8 @@ const imageSchema = new mongoose.Schema({
     uploadDate: { 
         type: Date, 
         default: Date.now 
-    }
+    },
+    category: String
 });
 
 // Initialize Models
@@ -158,76 +202,43 @@ app.get('/api/faculty', async (req, res) => {
 // ============= TEAM MEMBER ROUTES =============
 // Create Team Member
 // In your server code (index.js)
-app.patch('/api/team/:id', async (req, res) => {
-  try {
-    console.log('Update team member request:', req.body);
-
-    // Validate that we have an image URL
-    if (!req.body.image) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Image URL is required' 
-      });
+app.patch('/api/team/:id', upload.single('image'), async (req, res) => {
+    try {
+        const updateData = { ...req.body };
+        if (req.file) {
+            updateData.image = `/uploads/team/${req.file.filename}`;
+        }
+        const member = await TeamMember.findByIdAndUpdate(
+            req.params.id,
+            updateData,
+            { new: true }
+        );
+        if (!member) {
+            return res.status(404).json({ message: 'Team member not found' });
+        }
+        res.json(member);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-
-    const updateData = {
-      name: req.body.name,
-      position: req.body.position,
-      education: req.body.education,
-      year: req.body.year,
-      course: req.body.course,
-      linkedIn: req.body.linkedIn,
-      image: req.body.image // Make sure this is the full URL from the upload
-    };
-
-    // Use findOneAndUpdate to ensure we get the updated document
-    const teamMember = await TeamMember.findOneAndUpdate(
-      { _id: req.params.id },
-      updateData,
-      { 
-        new: true,
-        runValidators: true 
-      }
-    );
-
-    if (!teamMember) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Team member not found' 
-      });
-    }
-
-    console.log('Updated team member:', teamMember);
-    res.json({ 
-      success: true, 
-      data: teamMember 
-    });
-  } catch (error) {
-    console.error('Error updating team member:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
 });
   
   // Update the team member creation route as well
   app.post('/api/team', async (req, res) => {
     try {
-      console.log('Create team member request:', req.body); // Debug log
-  
+      console.log('Create team member request:', req.body);
+
       const teamMember = new TeamMember({
+        id: `TM${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         name: req.body.name,
         position: req.body.position,
         education: req.body.education,
         year: req.body.year,
         course: req.body.course,
         linkedIn: req.body.linkedIn,
-        image: req.body.image // Store the image URL
+        image: req.body.image
       });
-  
+
       await teamMember.save();
-      console.log('Created team member:', teamMember); // Debug log
       res.json(teamMember);
     } catch (error) {
       console.error('Error creating team member:', error);
@@ -237,12 +248,12 @@ app.patch('/api/team/:id', async (req, res) => {
 
 // Get All Team Members
 app.get('/api/team', async (req, res) => {
-    try {
-        const teamMembers = await TeamMember.find().sort({ id: 1 });
-        res.json(teamMembers);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  try {
+    const members = await TeamMember.find().sort({ position: 1 });
+    res.json(members);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get Team Member by Exact Position
@@ -266,28 +277,47 @@ app.get('/api/team/:position', async (req, res) => {
 // In your server code (index.js)
 app.post('/api/events', async (req, res) => {
     try {
-      console.log('Received event data:', req.body); // Debug log
-  
-      const event = new Event({
-        title: req.body.title,
-        description: req.body.description,
-        date: new Date(req.body.date),
-        time: req.body.time,
-        venue: req.body.venue,
-        category: req.body.category,
-        isUpcoming: req.body.isUpcoming === 'true',
-        mainImage: req.body.mainImage, // Store the image URL directly
-        registrationLink: req.body.registrationLink
-      });
-  
-      const savedEvent = await event.save();
-      console.log('Saved event:', savedEvent); // Debug log
-      res.json(savedEvent);
+        console.log('Received event data:', req.body);
+
+        // Validate required fields
+        const requiredFields = ['title', 'date', 'venue'];
+        for (const field of requiredFields) {
+            if (!req.body[field]) {
+                return res.status(400).json({
+                    success: false,
+                    error: `${field} is required`
+                });
+            }
+        }
+
+        const eventData = {
+            title: req.body.title,
+            description: req.body.description,
+            date: req.body.date,
+            time: req.body.time || '12:00 PM',
+            venue: req.body.venue,
+            category: req.body.category,
+            isUpcoming: req.body.isUpcoming,
+            image: req.body.mainImage || '/images/default.png', // Use mainImage or default
+            registrationLink: req.body.registrationLink,
+            imageStack: req.body.imageStack || []
+        };
+
+        const event = new Event(eventData);
+        await event.save();
+
+        res.json({
+            success: true,
+            data: event
+        });
     } catch (error) {
-      console.error('Error creating event:', error);
-      res.status(500).json({ error: error.message });
+        console.error('Error creating event:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
-  });
+});
 
 // Get All Events
 app.get('/api/events', async (req, res) => {
@@ -349,35 +379,58 @@ app.get('/api/contacts', async (req, res) => {
 // In your server code (index.js)
 app.post('/api/upload', upload.single('image'), async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'No image file provided' 
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No image file provided' 
+            });
+        }
+
+        const category = req.body.category || 'default';
+        const name = req.body.name || 'unnamed';
+        let uploadPath;
+
+        // Determine the upload path based on category
+        switch(category) {
+            case 'team':
+                uploadPath = `/public/uploads/team/${name}-${req.file.filename}`;
+                break;
+            case 'leader':
+                uploadPath = `/public/uploads/leader/${name}-${req.file.filename}`;
+                break;
+            case 'events':
+                uploadPath = `/public/uploads/events/${name}-${req.file.filename}`;
+                break;
+            default:
+                uploadPath = `/public/uploads/default/${req.file.filename}`;
+        }
+
+        // Create directories if they don't exist
+        const fullPath = path.join(__dirname, '..', uploadPath);
+        const dir = path.dirname(fullPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        // Move the file to the correct location
+        fs.renameSync(req.file.path, fullPath);
+
+        res.json({ 
+            success: true, 
+            imageUrl: uploadPath,
+            message: 'Image uploaded successfully' 
         });
-      }
-  
-      // Change the URL format to match your public directory
-      const imageUrl = `/public/${req.file.filename}`;
-      const newImage = new Image({ imageUrl });
-      await newImage.save();
-  
-      console.log('Image saved:', imageUrl);
-      res.json({ 
-        success: true, 
-        imageUrl: `http://localhost:5000${imageUrl}`, // Add the full URL
-        message: 'Image uploaded successfully' 
-      });
     } catch (error) {
-      console.error('Error uploading image:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error.message 
-      });
+        console.error('Error uploading image:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
     }
-  });
+});
   
   // Also serve static files
-  app.use('/public', express.static(path.join(__dirname, '../public')));
+  app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // Get All Images
 app.get('/api/images', async (req, res) => {

@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { loadFull } from "tsparticles";
 import type { Container, Engine } from "tsparticles-engine";
 import Particles from "react-tsparticles";
+import Image from 'next/image';
 
 const DEFAULT_IMAGE = '/images/default.png';
 
@@ -819,15 +820,18 @@ function MemberCard({ member, shouldGlow = false }: { member: Member; shouldGlow
       {/* Card Content */}
       <div className="relative h-full w-full rounded-lg overflow-hidden z-10">
         {/* Background Image */}
-        <img
-          src={member.image.replace('/public', '') || DEFAULT_IMAGE}
-          alt={member.name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = DEFAULT_IMAGE;
-          }}
-        />
+        <div className="aspect-square relative overflow-hidden">
+          <Image
+            src={member.image ? member.image.replace('/public', '') : '/images/default-avatar.png'}
+            alt={member.name}
+            fill
+            className="object-cover rounded-lg"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = '/images/default-avatar.png';
+            }}
+          />
+        </div>
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />

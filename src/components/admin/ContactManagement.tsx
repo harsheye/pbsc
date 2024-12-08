@@ -1,3 +1,4 @@
+'use client';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
@@ -41,13 +42,7 @@ export default function ContactManagement() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-orange-500">Contact Messages</h2>
-        <div className="text-sm text-gray-400">
-          Total Messages: {contacts.length}
-        </div>
-      </div>
-
+      {/* Contacts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {contacts.map(contact => (
           <motion.div
@@ -55,7 +50,7 @@ export default function ContactManagement() {
             layout
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-black/30 rounded-xl p-6 border border-orange-500/20 hover:border-orange-500/40 transition-colors"
+            className="bg-black/30 rounded-xl p-6 border border-orange-500/20"
           >
             <div className="space-y-4">
               <div className="border-b border-orange-500/10 pb-4">
@@ -81,6 +76,7 @@ export default function ContactManagement() {
         ))}
       </div>
 
+      {/* Empty State */}
       {contacts.length === 0 && (
         <div className="text-center text-gray-400 py-12 bg-black/20 rounded-xl border border-orange-500/10">
           No contact messages found.
