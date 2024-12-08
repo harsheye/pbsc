@@ -26,7 +26,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // MongoDB Connection
-mongoose.connect('mongodb://localhost:44275/pbsc', {
+mongoose.connect('mongodb+srv://Harsh:kavya@swastik.ikw5v.mongodb.net/PBSC', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })

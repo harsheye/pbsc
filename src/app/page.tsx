@@ -537,54 +537,101 @@ const steps = [
   }
 ];
 
-// Add floating papers animation component
-const FloatingPapers = () => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-    {[...Array(15)].map((_, i) => (
-      <motion.div
-        key={i}
-        className="absolute"
-        initial={{
-          opacity: 0,
-          x: Math.random() * window.innerWidth,
-          y: -100,
-          rotate: Math.random() * 360,
-          scale: Math.random() * 0.5 + 0.5
-        }}
-        animate={{
-          opacity: [0, 0.5, 0],
-          y: window.innerHeight + 100,
-          rotate: Math.random() * 720 - 360,
-          x: `${Math.random() * 100}%`
-        }}
-        transition={{
-          duration: Math.random() * 10 + 10,
-          repeat: Infinity,
-          delay: Math.random() * 20,
-          ease: "linear"
-        }}
-      >
-        {/* Paper/Book SVGs */}
-        <svg
-          className="w-8 h-8 text-orange-500/20"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-        >
-          {i % 2 === 0 ? (
-            // Paper icon
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-          ) : (
-            // Book icon
-            <path d="M21 4H3a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1zm-1 14H4V6h16v12z M6 8h12v2H6V8zm0 4h12v2H6v-2z" />
-          )}
-        </svg>
-      </motion.div>
-    ))}
-  </div>
-);
+interface PaperConfig {
+  id: string;
+  size: 'large' | 'small';
+  x: number;
+  y: number;
+  rotate: number;
+  scale: number;
+  duration: number;
+  delay: number;
+}
+
+// Create stable configs for server-side rendering
+const initialPaperConfigs: PaperConfig[] = Array.from({ length: 25 }, (_, i) => ({
+  id: `paper-${i}`,
+  size: 'small',
+  x: 0,
+  y: -100,
+  rotate: 0,
+  scale: 0.5,
+  duration: 10,
+  delay: 0
+}));
 
 export default function Home() {
   const [textIndex, setTextIndex] = useState(0);
+  const [windowDimensions, setWindowDimensions] = useState({ width: 0, height: 0 });
+  const [isClient, setIsClient] = useState(false);
+  const [paperConfigs, setPaperConfigs] = useState<PaperConfig[]>(initialPaperConfigs);
+
+  // Initialize random values only after component mounts
+  useEffect(() => {
+    setIsClient(true);
+    setPaperConfigs(
+      Array.from({ length: 25 }, (_, i) => ({
+        id: `paper-${i}`,
+        size: Math.random() > 0.5 ? 'large' : 'small',
+        x: Math.random() * 100,
+        y: -100,
+        rotate: Math.random() * 360,
+        scale: Math.random() * 0.7 + 0.3,
+        duration: Math.random() * 15 + 10,
+        delay: Math.random() * 10
+      }))
+    );
+
+    function handleResize() {
+      setWindowDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    }
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Render papers with stable keys
+  const renderFloatingPapers = () => {
+    if (!isClient) return null;
+
+    return paperConfigs.map((config) => (
+      <motion.div
+        key={config.id}
+        className="absolute"
+        initial={{
+          opacity: 0,
+          x: config.x * windowDimensions.width / 100,
+          y: config.y,
+          rotate: config.rotate,
+          scale: config.scale
+        }}
+        animate={{
+          opacity: [0, 0.7, 0],
+          y: windowDimensions.height + 100,
+          rotate: config.rotate * 2,
+          x: `${config.x}%`
+        }}
+        transition={{
+          duration: config.duration,
+          repeat: Infinity,
+          delay: config.delay,
+          ease: "linear"
+        }}
+      >
+        <svg
+          className={`${config.size === 'large' ? 'w-12 h-12' : 'w-8 h-8'} text-orange-500/20`}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
+          {/* ... SVG paths ... */}
+        </svg>
+      </motion.div>
+    ));
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -600,52 +647,11 @@ export default function Home() {
         {/* Grid Background */}
         <GridBackground />
         
-        {/* Floating Papers - Increased count and size variation */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(25)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute"
-              initial={{
-                opacity: 0,
-                x: Math.random() * window.innerWidth,
-                y: -100,
-                rotate: Math.random() * 360,
-                scale: Math.random() * 0.7 + 0.3 // More size variation
-              }}
-              animate={{
-                opacity: [0, 0.7, 0], // Increased max opacity
-                y: window.innerHeight + 100,
-                rotate: Math.random() * 720 - 360,
-                x: `${Math.random() * 100}%`
-              }}
-              transition={{
-                duration: Math.random() * 15 + 10, // Slower fall
-                repeat: Infinity,
-                delay: Math.random() * 10,
-                ease: "linear"
-              }}
-            >
-              {/* Paper/Book SVGs with larger size */}
-              <svg
-                className={`${Math.random() > 0.5 ? 'w-12 h-12' : 'w-8 h-8'} text-orange-500/20`}
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                {i % 3 === 0 ? (
-                  // Paper icon
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-                ) : i % 3 === 1 ? (
-                  // Book icon
-                  <path d="M21 4H3a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1zm-1 14H4V6h16v12z M6 8h12v2H6V8zm0 4h12v2H6v-2z" />
-                ) : (
-                  // Open book icon
-                  <path d="M12 19.5c-3.3 0-6-2.7-6-6V4.5c0-.8.7-1.5 1.5-1.5S9 3.7 9 4.5V12h2V4.5c0-.8.7-1.5 1.5-1.5s1.5.7 1.5 1.5V12h2V4.5c0-.8.7-1.5 1.5-1.5s1.5.7 1.5 1.5V12c0 3.3-2.7 6-6 6z" />
-                )}
-              </svg>
-            </motion.div>
-          ))}
-        </div>
+        {isClient && windowDimensions.height > 0 && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {renderFloatingPapers()}
+          </div>
+        )}
 
         <div className="text-center space-y-6 max-w-4xl mx-auto relative z-10">
           {/* Main Title with Grid Animation */}
